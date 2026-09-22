@@ -1,0 +1,31 @@
+# env
+.env
+.env.*
+!.env.example
+
+# virtual environment
+venv/
+.venv/
+env/
+
+# python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# packaging
+*.egg-info/
+dist/
+build/
+
+# testing / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
