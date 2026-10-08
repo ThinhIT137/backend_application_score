@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+﻿from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 
@@ -56,5 +56,9 @@ def register_exception_handlers(app: FastAPI) -> None:
     async def handle_app_error(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(
             status_code=exc.status_code,
-            content={"code": exc.code, "message": exc.message},
+            content={
+                "code": exc.code,
+                "message": exc.message,
+                "detail": exc.message,
+            },
         )

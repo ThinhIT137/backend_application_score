@@ -3,7 +3,7 @@ from uuid import uuid4
 from sqlalchemy import extract, select
 from sqlalchemy.orm import Session
 
-from src.models.diem_chuan import BangDiem, ChungChi, DiemChiTiet
+from src.models.diem_thi_sinh import BangDiem, ChungChi, DiemChiTiet
 from src.models.tham_chieu import DanhMucMonHoc, LoTrinhTuyenSinh, ThiSinh
 from src.models.trang_thai_ho_so import LoaiBangDiem, TrangThaiDuyet
 from src.repositories.diem_repository_interface import DiemRepositoryInterface

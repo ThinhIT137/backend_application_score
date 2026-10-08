@@ -9,7 +9,7 @@ from src.core.exceptions import (
     TrangThaiKhongHopLe,
 )
 from src.core.security import CurrentUser
-from src.models.diem_chuan import ChungChi
+from src.models.diem_thi_sinh import ChungChi
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 from src.repositories.diem_repository_interface import DiemRepositoryInterface
 from src.schemas.diem_schema import (
@@ -79,12 +79,13 @@ class DiemService(DiemServiceInterface):
             loi=loi,
         )
 
-    def nop_dgnl(self, payload: NopDgnlRequest, user: CurrentUser) -> ChungChiDgnlItem:
-        cccd = user.cccd
+    def nop_dgnl(self, payload: NopDgnlRequest, user: CurrentUser | None = None) -> ChungChiDgnlItem:
+        # TODO: thay bằng JWT khi FE có đăng nhập thí sinh
+        cccd = (user.cccd if user else None) or payload.cccd
         if not cccd:
-            raise DuLieuKhongHopLe("Token thí sinh thiếu CCCD")
+            raise DuLieuKhongHopLe("Thiếu CCCD thí sinh")
         if not self.diem_repo.thi_sinh_exists(cccd):
-            raise DuLieuKhongHopLe("CCCD không tồn tại")
+            raise DuLieuKhongHopLe("CCCD không tồn tại trong hệ thống")
 
         suffix = Path(payload.file_dinh_kem.split("?")[0]).suffix.lower()
         if suffix not in ALLOWED_EVIDENCE_EXT:

@@ -1,54 +1,61 @@
-from datetime import datetime
+﻿from datetime import datetime
+from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.core.database import Base
-from src.models.trang_thai_ho_so import LoaiBangDiem, TrangThaiDuyet, pg_enum
+
+if TYPE_CHECKING:
+    pass
 
 
-class BangDiem(Base):
-    __tablename__ = "bang_diem"
+class LichSuDiemChuan(Base):
+    """Diem chuan cua 1 chuong trinh dao tao trong 1 nam tuyen sinh."""
 
-    ma_bang_diem: Mapped[str] = mapped_column(String, primary_key=True)
-    cccd: Mapped[str] = mapped_column(String(12), ForeignKey("thi_sinh.cccd"), nullable=False)
-    loai_diem: Mapped[LoaiBangDiem] = mapped_column(
-        pg_enum(LoaiBangDiem, "loai_bang_diem"),
-        nullable=False,
+    __tablename__ = "lich_su_diem_chuan"
+    __table_args__ = (
+        UniqueConstraint("ma_chuong_trinh", "nam", name="uq_ls_dc_chuong_trinh_nam"),
     )
-    nam_hoc: Mapped[int] = mapped_column(Integer, nullable=False)
 
-    chi_tiet: Mapped[list["DiemChiTiet"]] = relationship(back_populates="bang_diem")
-
-
-class DiemChiTiet(Base):
-    __tablename__ = "diem_chi_tiet"
-
-    ma_chi_tiet: Mapped[str] = mapped_column(String, primary_key=True)
-    ma_bang_diem: Mapped[str] = mapped_column(
-        String, ForeignKey("bang_diem.ma_bang_diem"), nullable=False
+    ma_ls_dc: Mapped[str] = mapped_column(String, primary_key=True)
+    ma_chuong_trinh: Mapped[str] = mapped_column(
+        String, ForeignKey("chuong_trinh_dao_tao.ma_chuong_trinh"), nullable=False
     )
-    ma_mon: Mapped[str] = mapped_column(
-        String, ForeignKey("danh_muc_mon_hoc.ma_mon"), nullable=False
-    )
-    diem_so: Mapped[float | None] = mapped_column(Float, nullable=True)
-
-    bang_diem: Mapped[BangDiem] = relationship(back_populates="chi_tiet")
-
-
-class ChungChi(Base):
-    __tablename__ = "chung_chi"
-
-    ma_chung_chi: Mapped[str] = mapped_column(String, primary_key=True)
-    cccd: Mapped[str] = mapped_column(String(12), ForeignKey("thi_sinh.cccd"), nullable=False)
-    loai_chung_chi: Mapped[str] = mapped_column(String, nullable=False)
-    diem_hoac_hang: Mapped[str | None] = mapped_column(String, nullable=True)
-    ngay_cap: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    ngay_het_han: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    file_dinh_kem: Mapped[str | None] = mapped_column(String, nullable=True)
-    trang_thai_duyet: Mapped[TrangThaiDuyet] = mapped_column(
-        pg_enum(TrangThaiDuyet, "trang_thai_duyet"),
-        nullable=False,
-        default=TrangThaiDuyet.cho,
+    nam: Mapped[int] = mapped_column(Integer, nullable=False)
+    chi_tieu: Mapped[int] = mapped_column(Integer, nullable=False)
+    # So luong trung tuyen thuc te -- chi co gia tri sau khi ket thuc dot xet tuyen
+    trung_tuyen: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    ma_admin_cap_nhat: Mapped[str] = mapped_column(
+        String, ForeignKey("admin.ma_admin"), nullable=False
     )
     create_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+    diem_trung_tuyen: Mapped[list["DiemTrungTuyen"]] = relationship(
+        back_populates="lich_su", cascade="all, delete-orphan"
+    )
+
+
+class DiemTrungTuyen(Base):
+    """Diem trung tuyen theo tung phuong thuc xet tuyen trong 1 nam."""
+
+    __tablename__ = "diem_trung_tuyen"
+    __table_args__ = (
+        UniqueConstraint("ma_ls_dc", "ma_phuong_thuc", name="uq_dtt_ls_dc_phuong_thuc"),
+    )
+
+    ma_diem_tt: Mapped[str] = mapped_column(String, primary_key=True)
+    ma_ls_dc: Mapped[str] = mapped_column(
+        String, ForeignKey("lich_su_diem_chuan.ma_ls_dc", ondelete="CASCADE"), nullable=False
+    )
+    ma_phuong_thuc: Mapped[str] = mapped_column(
+        String, ForeignKey("phuong_thuc_xet_tuyen.ma_phuong_thuc"), nullable=False
+    )
+    diem: Mapped[float] = mapped_column(Float, nullable=False)
+    create_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Tieu chi phu (tuy chon)
+    nguyen_vong_toi_da: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    dieu_kien_mon: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    diem_uu_tien_toi_thieu: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+    lich_su: Mapped[LichSuDiemChuan] = relationship(back_populates="diem_trung_tuyen")

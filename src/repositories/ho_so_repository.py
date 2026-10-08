@@ -1,9 +1,10 @@
-from sqlalchemy import Select, func, select
+﻿from sqlalchemy import Select, func, select
 from sqlalchemy.orm import Session
 
-from src.models.diem_chuan import BangDiem, ChungChi
+from src.models.diem_thi_sinh import BangDiem, ChungChi
+from src.models.giai_thuong import GiaiThuong
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.tham_chieu import GiaiThuong
+from src.models.tham_chieu import ThiSinh
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 from src.repositories.ho_so_repository_interface import HoSoRepositoryInterface
 
@@ -92,3 +93,45 @@ class HoSoRepository(HoSoRepositoryInterface):
             ma_phuong_thuc=ma_phuong_thuc,
         )
         return list(self.db.scalars(stmt).all())
+
+    # --- Sprint 1 methods ---
+
+    def create_ho_so(self, record: NguyenVongSinhVien) -> NguyenVongSinhVien:
+        self.db.add(record)
+        self.db.flush()
+        self.db.refresh(record)
+        return record
+
+    def find_by_cccd_nam_phuong_thuc(
+        self, cccd: str, nam: int, ma_phuong_thuc: str
+    ) -> NguyenVongSinhVien | None:
+        stmt = select(NguyenVongSinhVien).where(
+            NguyenVongSinhVien.cccd == cccd,
+            NguyenVongSinhVien.nam_tuyen_sinh == nam,
+            NguyenVongSinhVien.ma_phuong_thuc == ma_phuong_thuc,
+        )
+        return self.db.scalars(stmt).first()
+
+    def find_by_cccd(
+        self, cccd: str, nam: int | None = None
+    ) -> list[NguyenVongSinhVien]:
+        stmt = select(NguyenVongSinhVien).where(NguyenVongSinhVien.cccd == cccd)
+        if nam is not None:
+            stmt = stmt.where(NguyenVongSinhVien.nam_tuyen_sinh == nam)
+        stmt = stmt.order_by(NguyenVongSinhVien.create_at.desc())
+        return list(self.db.scalars(stmt).all())
+
+    def check_thi_sinh_exists(self, cccd: str) -> bool:
+        return self.db.get(ThiSinh, cccd) is not None
+
+    def create_chung_chi(self, record: ChungChi) -> ChungChi:
+        self.db.add(record)
+        self.db.flush()
+        self.db.refresh(record)
+        return record
+
+    def create_giai_thuong(self, record: GiaiThuong) -> GiaiThuong:
+        self.db.add(record)
+        self.db.flush()
+        self.db.refresh(record)
+        return record

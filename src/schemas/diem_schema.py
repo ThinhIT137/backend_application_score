@@ -35,6 +35,8 @@ class DongBoThptResponse(BaseModel):
 
 
 class NopDgnlRequest(BaseModel):
+    # TODO: bỏ field cccd khi FE có đăng nhập thí sinh và lấy CCCD từ JWT token
+    cccd: str = Field(min_length=9, max_length=12, description="Số CCCD của thí sinh nộp điểm ĐGNL")
     diem: float = Field(ge=0, le=150)
     ngay_cap: datetime
     ngay_het_han: datetime | None = None

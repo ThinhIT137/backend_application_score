@@ -1,9 +1,4 @@
-"""Bảng tham chiếu đã có sẵn — chỉ map cột tối thiểu cần cho Sprint 2.
-
-Cột thời gian của `lo_trinh_tuyen_sinh` giả định theo snake_case phổ biến
-(`thoi_gian_bat_dau` / `thoi_gian_ket_thuc` / `loai_moc`). Nếu Prisma map khác,
-chỉnh lại mapped_column cho khớp schema.prisma, không tạo bảng mới.
-"""
+﻿"""Bảng tham chiếu đã có sẵn -- chỉ map cột tối thiểu cần cho Sprint 1 & 2."""
 
 from datetime import datetime
 
@@ -29,13 +24,6 @@ class DanhMucMonHoc(Base):
     __tablename__ = "danh_muc_mon_hoc"
 
     ma_mon: Mapped[str] = mapped_column(String, primary_key=True)
-
-
-class GiaiThuong(Base):
-    __tablename__ = "giai_thuong"
-
-    ma_giai_thuong: Mapped[str] = mapped_column(String, primary_key=True)
-    cccd: Mapped[str] = mapped_column(String(12), nullable=False)
 
 
 class LoTrinhTuyenSinh(Base):

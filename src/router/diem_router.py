@@ -1,9 +1,10 @@
-from fastapi import APIRouter, Body, Depends
+﻿from fastapi import APIRouter, Body, Depends
 from sqlalchemy.orm import Session
 
 from src.core.config import get_settings
 from src.core.database import get_db
 from src.core.security import CurrentUser, require_admin, require_thi_sinh
+from src.repositories.diem_chuan_repository import DiemChuanRepository
 from src.repositories.diem_repository import DiemRepository
 from src.schemas.diem_schema import (
     ChungChiDgnlItem,
@@ -12,7 +13,9 @@ from src.schemas.diem_schema import (
     NopDgnlRequest,
     YeuCauBoSungRequest,
 )
+from src.schemas.quy_doi_schema import QuyDoiRequest, QuyDoiResponse
 from src.services.adapters.mock_providers import MockBoGddtProvider, MockDhqgDgnlProvider
+from src.services.diem_chuan_service import DiemChuanService
 from src.services.diem_service import DiemService
 
 router = APIRouter(prefix="/diem", tags=["diem"])
@@ -25,6 +28,10 @@ def get_diem_service(db: Session = Depends(get_db)) -> DiemService:
     return DiemService(DiemRepository(db), thpt, dgnl)
 
 
+def get_diem_chuan_service(db: Session = Depends(get_db)) -> DiemChuanService:
+    return DiemChuanService(DiemChuanRepository(db))
+
+
 @router.post("/dong-bo-thpt", response_model=DongBoThptResponse)
 def dong_bo_thpt(
     payload: DongBoThptRequest,
@@ -34,13 +41,13 @@ def dong_bo_thpt(
     return service.dong_bo_thpt(payload)
 
 
+# TODO: thay bằng JWT khi FE có đăng nhập thí sinh
 @router.post("/dgnl", response_model=ChungChiDgnlItem)
 def nop_dgnl(
     payload: NopDgnlRequest,
-    user: CurrentUser = Depends(require_thi_sinh),
     service: DiemService = Depends(get_diem_service),
 ) -> ChungChiDgnlItem:
-    return service.nop_dgnl(payload, user)
+    return service.nop_dgnl(payload)
 
 
 @router.get("/dgnl/cho-xac-minh", response_model=list[ChungChiDgnlItem])
@@ -68,3 +75,12 @@ def yeu_cau_bo_sung(
     service: DiemService = Depends(get_diem_service),
 ) -> ChungChiDgnlItem:
     return ChungChiDgnlItem.model_validate(service.yeu_cau_bo_sung(ma_chung_chi))
+
+
+# --- Sprint 1: Tinh diem quy doi (Thí sinh, no auth) ---
+@router.post("/quy-doi", response_model=QuyDoiResponse)
+def tinh_diem_quy_doi(
+    payload: QuyDoiRequest,
+    service: DiemChuanService = Depends(get_diem_chuan_service),
+) -> QuyDoiResponse:
+    return service.tinh_diem_quy_doi(payload)

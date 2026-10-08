@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 
-from src.models.diem_chuan import BangDiem, ChungChi
+from src.models.diem_thi_sinh import BangDiem, ChungChi
 from src.models.tham_chieu import LoTrinhTuyenSinh
 from src.schemas.diem_schema import DiemMonThpt
 

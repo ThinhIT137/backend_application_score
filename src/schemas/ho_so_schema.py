@@ -1,4 +1,4 @@
-from datetime import datetime
+﻿from datetime import datetime
 
 from pydantic import BaseModel, Field
 
@@ -72,3 +72,57 @@ class CongBoKetQuaResponse(BaseModel):
     trong_moc_cong_bo: bool
     notification_triggered: bool
     idempotent: bool = False
+
+
+# --- Sprint 1 schemas ---
+
+
+class NopChungChiItem(BaseModel):
+    loai_chung_chi: str = Field(min_length=1)
+    diem_hoac_hang: str | None = None
+    ngay_cap: datetime | None = None
+    ngay_het_han: datetime | None = None
+    file_dinh_kem: str | None = None
+
+
+class NopGiaiThuongItem(BaseModel):
+    giai_thuong: str = Field(description="Hang giai thuong: giai_nhat, giai_nhi, giai_ba, khuyen_khich")
+    loai_giai_thuong: str = Field(description="Cap giai thuong: toan_quoc, tinh, mien_bac, mien_nam")
+    mon_hoc: str = Field(description="Mon hoc: toan, van, anh...")
+
+
+class NopHoSoRequest(BaseModel):
+    cccd: str = Field(min_length=12, max_length=12, description="So CCCD 12 chu so cua thi sinh")
+    ma_chuong_trinh: str = Field(min_length=1)
+    ma_phuong_thuc: str = Field(min_length=1)
+    nguyen_vong: int = Field(ge=1, default=1)
+    nam_tuyen_sinh: int = Field(ge=2000, le=2100)
+    ma_to_hop: str | None = None
+    diem_uu_tien_ap_dung: float | None = None
+    tong_diem_xet_tuyen: float | None = None
+    chung_chi: list[NopChungChiItem] = Field(default_factory=list)
+    giai_thuong: list[NopGiaiThuongItem] = Field(default_factory=list)
+
+
+class NopHoSoResponse(BaseModel):
+    ma_ho_so: str
+    cccd: str
+    ma_chuong_trinh: str
+    ma_phuong_thuc: str
+    trang_thai: TrangThaiDuyet
+    message: str
+
+
+class TraCuuHoSoItem(BaseModel):
+    ma_ho_so: str
+    cccd: str
+    ma_chuong_trinh: str
+    ma_phuong_thuc: str
+    nguyen_vong: int
+    nam_tuyen_sinh: int
+    trang_thai: TrangThaiDuyet
+    ket_qua: str | None = None
+    create_at: datetime
+    timeline_trang_thai: str = "da_nop"
+
+    model_config = {"from_attributes": True}
