@@ -15,7 +15,7 @@ from src.schemas.ho_so_schema import (
     MinhChungChungChi,
     MinhChungGiaiThuong,
 )
-from src.services.adapters.notification import NotificationPublisher
+from src.services.adapters.notification import NotificationPublisher, NoOpNotificationPublisher
 from src.services.interface.ho_so_service_interface import HoSoServiceInterface
 
 
@@ -69,6 +69,15 @@ class HoSoService(HoSoServiceInterface):
             }
         )
 
+    def get_own_detail(self, ma_ho_so: str, user: CurrentUser) -> HoSoDetail:
+        if user.role != "thi_sinh" or not user.cccd:
+            raise DuLieuKhongHopLe("Cần định danh thí sinh để tra cứu")
+        record = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
+        # Trả 404 khi không sở hữu, tránh tiết lộ hồ sơ người khác.
+        if record is None or record.cccd != user.cccd:
+            raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+        return self.get_detail(ma_ho_so)
+
     def _require_cho(self, ma_ho_so: str) -> NguyenVongSinhVien:
         ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
         if ho_so is None:
@@ -96,7 +105,7 @@ class HoSoService(HoSoServiceInterface):
 
     def _trong_moc_cong_bo(self, nam_tuyen_sinh: int, now: datetime) -> bool:
         moc_list = self.diem_repo.list_lo_trinh(nam_tuyen_sinh)
-        relevant = [moc for moc in moc_list if _is_moc_cong_bo(moc)] or moc_list
+        relevant = [moc for moc in moc_list if _is_moc_cong_bo(moc)]
         if not relevant:
             return False
         for moc in relevant:
@@ -128,19 +137,22 @@ class HoSoService(HoSoServiceInterface):
             ma_chuong_trinh=payload.ma_chuong_trinh,
             ma_phuong_thuc=payload.ma_phuong_thuc,
         )
+        changed = False
         for ho_so in records:
             if not ho_so.ket_qua:
+                changed = True
                 if ho_so.trang_thai == TrangThaiDuyet.hop_le:
                     ho_so.ket_qua = "Đủ điều kiện xét tuyển (đã công bố)"
                 elif ho_so.trang_thai == TrangThaiDuyet.tu_choi:
                     ho_so.ket_qua = ho_so.ket_qua or "Không đủ điều kiện (đã công bố)"
 
-        self.notifier.trigger_cong_bo_ket_qua(payload.nam_tuyen_sinh)
+        if changed:
+            self.notifier.trigger_cong_bo_ket_qua(payload.nam_tuyen_sinh)
         return CongBoKetQuaResponse(
             nam_tuyen_sinh=payload.nam_tuyen_sinh,
             so_ho_so=len(records),
             da_xu_ly_het=True,
             trong_moc_cong_bo=True,
-            notification_triggered=True,
+            notification_triggered=changed and not isinstance(self.notifier, NoOpNotificationPublisher),
             idempotent=True,
         )

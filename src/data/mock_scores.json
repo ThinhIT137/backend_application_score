@@ -1,0 +1,8 @@
+{
+  "description": "Synthetic records, not official examination results",
+  "thpt": {"2026": [
+    {"cccd": "000000000001", "diem_mon": [{"ma_mon": "TOAN", "diem_so": 8.0}, {"ma_mon": "VAN", "diem_so": 7.5}]},
+    {"cccd": "000000000002", "diem_mon": [{"ma_mon": "TOAN", "diem_so": 6.0}, {"ma_mon": "VAN", "diem_so": 8.5}]}
+  ]},
+  "dgnl": {"000000000001": {"2026": 100.0}, "000000000002": {"2026": 85.0}}
+}
