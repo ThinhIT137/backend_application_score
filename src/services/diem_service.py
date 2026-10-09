@@ -123,7 +123,7 @@ class DiemService(DiemServiceInterface):
     def xac_nhan_dgnl(self, ma_chung_chi: str) -> ChungChi:
         record = self._require_dgnl_cho(ma_chung_chi)
         try:
-            khop = self.dgnl_provider.diem_khop(record.cccd, record.diem_hoac_hang)
+            khop = self.dgnl_provider.diem_khop(record.cccd, record.diem_hoac_hang, record.ngay_cap.year if record.ngay_cap else None)
         except Exception as exc:  # noqa: BLE001
             raise NguonDuLieuLoi(f"Không đối soát được với ĐHQG: {exc}") from exc
         if not khop:

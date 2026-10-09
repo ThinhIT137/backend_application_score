@@ -2,8 +2,7 @@
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
-from src.core.exceptions import DuLieuKhongHopLe
-from src.core.security import CurrentUser, require_admin
+from src.core.security import CurrentUser, require_admin, require_thi_sinh
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 from src.repositories.diem_repository import DiemRepository
 from src.repositories.ho_so_repository import HoSoRepository
@@ -137,3 +136,12 @@ def tu_choi_ho_so(
     service: HoSoService = Depends(get_ho_so_service),
 ) -> HoSoListItem:
     return HoSoListItem.model_validate(service.tu_choi(ma_ho_so, payload.ly_do, admin))
+
+
+@router.get("/cua-toi/{ma_ho_so}", response_model=HoSoDetail)
+def get_my_profile(
+    ma_ho_so: str,
+    user: CurrentUser = Depends(require_thi_sinh),
+    service: HoSoService = Depends(get_ho_so_service),
+) -> HoSoDetail:
+    return service.get_own_detail(ma_ho_so, user)

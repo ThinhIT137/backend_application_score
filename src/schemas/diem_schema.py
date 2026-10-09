@@ -1,7 +1,7 @@
-import math
+from typing import Literal
 from datetime import datetime
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 
@@ -10,16 +10,23 @@ LOAI_CHUNG_CHI_DGNL = "DGNL"
 
 class DiemMonThpt(BaseModel):
     ma_mon: str
-    diem_so: float | None = None
+    diem_so: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
 
 
 class ThiSinhDiemThpt(BaseModel):
     cccd: str
     diem_mon: list[DiemMonThpt] = Field(default_factory=list)
 
+    @model_validator(mode="after")
+    def unique_subjects(self):
+        ids = [m.ma_mon for m in self.diem_mon]
+        if len(ids) != len(set(ids)):
+            raise ValueError("Duplicate examination subject")
+        return self
+
 
 class DongBoThptRequest(BaseModel):
-    nam_hoc: int
+    nam_hoc: int = Field(ge=1900, le=2100)
 
 
 class DongBoLoiItem(BaseModel):
@@ -36,35 +43,17 @@ class DongBoThptResponse(BaseModel):
 
 
 class NopDgnlRequest(BaseModel):
-    # TODO: bỏ field cccd khi FE có đăng nhập thí sinh và lấy CCCD từ JWT token
-    cccd: str = Field(min_length=9, max_length=12, description="Số CCCD của thí sinh nộp điểm ĐGNL")
-    diem: float = Field(ge=0, le=150)
+    diem: float = Field(ge=0, le=150, allow_inf_nan=False)
     ngay_cap: datetime
     ngay_het_han: datetime | None = None
     file_dinh_kem: str = Field(min_length=1)
 
-    @field_validator("cccd", "file_dinh_kem", mode="before")
-    @classmethod
-    def normalize_text_fields(cls, value: str | None, info):
-        if value is None:
-            return value
-        value = str(value).strip()
-        if not value:
-            raise ValueError(f"{info.field_name} không được để trống")
-        return value
 
-    @field_validator("diem", mode="before")
-    @classmethod
-    def validate_diem(cls, value: float | str | None) -> float | None:
-        if value is None:
-            return value
-        try:
-            numeric = float(value)
-        except (TypeError, ValueError) as exc:
-            raise ValueError("Điểm ĐGNL phải là số hợp lệ") from exc
-        if not math.isfinite(numeric):
-            raise ValueError("Điểm ĐGNL phải là số hữu hạn")
-        return numeric
+    @model_validator(mode="after")
+    def validate_dates(self):
+        if self.ngay_het_han and self.ngay_het_han < self.ngay_cap:
+            raise ValueError("Expiry precedes issue date")
+        return self
 
 
 class ChungChiDgnlItem(BaseModel):
@@ -82,3 +71,16 @@ class ChungChiDgnlItem(BaseModel):
 
 class YeuCauBoSungRequest(BaseModel):
     ly_do: str | None = None
+
+
+class QuyDoiDiemRequest(BaseModel):
+    phuong_thuc: Literal["hoc_ba", "hsa", "tsa"]
+    diem: float = Field(allow_inf_nan=False)
+    nam_tuyen_sinh: Literal[2026] = 2026
+
+
+class QuyDoiDiemResponse(BaseModel):
+    phuong_thuc: str
+    diem_goc: float
+    diem_thpt: float
+    nam_tuyen_sinh: int

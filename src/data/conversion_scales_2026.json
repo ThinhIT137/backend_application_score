@@ -1,0 +1,194 @@
+{
+  "description": "Bảng quy đổi tương đương giữa điểm thi THPT năm 2026 với Học bạ THPT, TSA (ĐGTD ĐHBK HN) và HSA (ĐGNL ĐHQGHN)",
+  "source": "Quy chế quy đổi tương đương tuyển sinh đại học 2026",
+  "hoc_ba_to_thpt": [
+    {
+      "stt": 1,
+      "khoang": "Khoảng 1",
+      "thpt_min": 28.2,
+      "thpt_max": 30.0,
+      "hoc_ba_min": 29.8,
+      "hoc_ba_max": 30.0
+    },
+    {
+      "stt": 2,
+      "khoang": "Khoảng 2",
+      "thpt_min": 27.5,
+      "thpt_max": 28.2,
+      "hoc_ba_min": 29.37,
+      "hoc_ba_max": 29.8
+    },
+    {
+      "stt": 3,
+      "khoang": "Khoảng 3",
+      "thpt_min": 26.0,
+      "thpt_max": 27.5,
+      "hoc_ba_min": 28.63,
+      "hoc_ba_max": 29.37
+    },
+    {
+      "stt": 4,
+      "khoang": "Khoảng 4",
+      "thpt_min": 24.75,
+      "thpt_max": 26.0,
+      "hoc_ba_min": 27.63,
+      "hoc_ba_max": 28.63
+    },
+    {
+      "stt": 5,
+      "khoang": "Khoảng 5",
+      "thpt_min": 21.75,
+      "thpt_max": 24.75,
+      "hoc_ba_min": 26.07,
+      "hoc_ba_max": 27.63
+    },
+    {
+      "stt": 6,
+      "khoang": "Khoảng 6",
+      "thpt_min": 18.75,
+      "thpt_max": 21.75,
+      "hoc_ba_min": 23.67,
+      "hoc_ba_max": 26.07
+    },
+    {
+      "stt": 7,
+      "khoang": "Khoảng 7",
+      "thpt_min": 16.0,
+      "thpt_max": 18.75,
+      "hoc_ba_min": 21.0,
+      "hoc_ba_max": 23.67
+    }
+  ],
+  "tsa_to_thpt": [
+    {
+      "stt": 1,
+      "khoang": "Khoảng 1",
+      "thpt_min": 29.5,
+      "thpt_max": 30.0,
+      "tsa_min": 82.76,
+      "tsa_max": 100.0
+    },
+    {
+      "stt": 2,
+      "khoang": "Khoảng 2",
+      "thpt_min": 28.25,
+      "thpt_max": 29.5,
+      "tsa_min": 71.85,
+      "tsa_max": 82.76
+    },
+    {
+      "stt": 3,
+      "khoang": "Khoảng 3",
+      "thpt_min": 26.75,
+      "thpt_max": 28.25,
+      "tsa_min": 64.4,
+      "tsa_max": 71.85
+    },
+    {
+      "stt": 4,
+      "khoang": "Khoảng 4",
+      "thpt_min": 25.1,
+      "thpt_max": 26.75,
+      "tsa_min": 58.72,
+      "tsa_max": 64.4
+    },
+    {
+      "stt": 5,
+      "khoang": "Khoảng 5",
+      "thpt_min": 23.5,
+      "thpt_max": 25.1,
+      "tsa_min": 53.68,
+      "tsa_max": 58.72
+    },
+    {
+      "stt": 6,
+      "khoang": "Khoảng 6",
+      "thpt_min": 21.1,
+      "thpt_max": 23.5,
+      "tsa_min": 48.47,
+      "tsa_max": 53.68
+    },
+    {
+      "stt": 7,
+      "khoang": "Khoảng 7",
+      "thpt_min": 18.75,
+      "thpt_max": 21.1,
+      "tsa_min": 44.16,
+      "tsa_max": 48.47
+    },
+    {
+      "stt": 8,
+      "khoang": "Khoảng 8",
+      "thpt_min": 17.25,
+      "thpt_max": 18.75,
+      "tsa_min": 41.77,
+      "tsa_max": 44.16
+    },
+    {
+      "stt": 9,
+      "khoang": "Khoảng 9",
+      "thpt_min": 16.0,
+      "thpt_max": 17.25,
+      "tsa_min": 39.63,
+      "tsa_max": 41.77
+    }
+  ],
+  "hsa_to_thpt": [
+    {
+      "stt": 1,
+      "khoang": "Khoảng 1",
+      "thpt_min": 29.75,
+      "thpt_max": 30.0,
+      "hsa_min": 127.0,
+      "hsa_max": 150.0
+    },
+    {
+      "stt": 2,
+      "khoang": "Khoảng 2",
+      "thpt_min": 28.98,
+      "thpt_max": 29.75,
+      "hsa_min": 119.0,
+      "hsa_max": 127.0
+    },
+    {
+      "stt": 3,
+      "khoang": "Khoảng 3",
+      "thpt_min": 26.52,
+      "thpt_max": 28.98,
+      "hsa_min": 104.0,
+      "hsa_max": 119.0
+    },
+    {
+      "stt": 4,
+      "khoang": "Khoảng 4",
+      "thpt_min": 23.77,
+      "thpt_max": 26.52,
+      "hsa_min": 86.0,
+      "hsa_max": 104.0
+    },
+    {
+      "stt": 5,
+      "khoang": "Khoảng 5",
+      "thpt_min": 21.73,
+      "thpt_max": 23.77,
+      "hsa_min": 75.0,
+      "hsa_max": 86.0
+    },
+    {
+      "stt": 6,
+      "khoang": "Khoảng 6",
+      "thpt_min": 17.77,
+      "thpt_max": 21.73,
+      "hsa_min": 62.0,
+      "hsa_max": 75.0
+    },
+    {
+      "stt": 7,
+      "khoang": "Khoảng 7",
+      "thpt_min": 16.0,
+      "thpt_max": 17.77,
+      "hsa_min": 56.74,
+      "hsa_max": 62.0
+    }
+  ]
+}

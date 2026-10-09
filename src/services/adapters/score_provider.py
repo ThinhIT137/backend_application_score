@@ -15,5 +15,5 @@ class ExternalDgnlProvider(ABC):
     """Nguồn đối soát ĐGNL (ĐHQG)."""
 
     @abstractmethod
-    def diem_khop(self, cccd: str, diem: str | None) -> bool:
+    def diem_khop(self, cccd: str, diem: str | None, nam: int | None = None) -> bool:
         raise NotImplementedError

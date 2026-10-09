@@ -27,6 +27,10 @@ class HoSoServiceInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def get_own_detail(self, ma_ho_so: str, user: CurrentUser) -> HoSoDetail:
+        raise NotImplementedError
+
+    @abstractmethod
     def duyet(self, ma_ho_so: str, admin: CurrentUser) -> NguyenVongSinhVien:
         raise NotImplementedError
 

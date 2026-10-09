@@ -18,14 +18,23 @@ class MinhChungChungChi(BaseModel):
 class MinhChungGiaiThuong(BaseModel):
     ma_giai_thuong: str
     cccd: str
+    giai_thuong: str
+    loai_giai_thuong: str
+    mon_hoc: str
 
     model_config = {"from_attributes": True}
 
+
+class MinhChungDiemMon(BaseModel):
+    ma_mon: str
+    diem_so: float | None
+    model_config = {"from_attributes": True}
 
 class MinhChungBangDiem(BaseModel):
     ma_bang_diem: str
     loai_diem: str
     nam_hoc: int
+    chi_tiet: list[MinhChungDiemMon] = Field(default_factory=list)
 
     model_config = {"from_attributes": True}
 

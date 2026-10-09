@@ -3,11 +3,12 @@ from sqlalchemy.orm import Session
 
 from src.core.config import get_settings
 from src.core.database import get_db
-from src.core.security import CurrentUser, require_admin, require_thi_sinh
-from src.repositories.diem_chuan_repository import DiemChuanRepository
+from src.core.security import CurrentUser, get_current_user, require_admin, require_thi_sinh
 from src.repositories.diem_repository import DiemRepository
 from src.schemas.diem_schema import (
     ChungChiDgnlItem,
+    QuyDoiDiemRequest,
+    QuyDoiDiemResponse,
     DongBoThptRequest,
     DongBoThptResponse,
     NopDgnlRequest,
@@ -17,14 +18,15 @@ from src.schemas.quy_doi_schema import QuyDoiRequest, QuyDoiResponse
 from src.services.adapters.mock_providers import MockBoGddtProvider, MockDhqgDgnlProvider
 from src.services.diem_chuan_service import DiemChuanService
 from src.services.diem_service import DiemService
+from src.services.conversion_service import convert_to_thpt
 
 router = APIRouter(prefix="/diem", tags=["diem"])
 
 
 def get_diem_service(db: Session = Depends(get_db)) -> DiemService:
-    settings = get_settings()
-    thpt = MockBoGddtProvider() if settings.thpt_provider == "mock" else MockBoGddtProvider()
-    dgnl = MockDhqgDgnlProvider() if settings.dgnl_provider == "mock" else MockDhqgDgnlProvider()
+    get_settings()  # Validate that only supported mock providers are configured.
+    thpt = MockBoGddtProvider()
+    dgnl = MockDhqgDgnlProvider()
     return DiemService(DiemRepository(db), thpt, dgnl)
 
 
@@ -77,10 +79,15 @@ def yeu_cau_bo_sung(
     return ChungChiDgnlItem.model_validate(service.yeu_cau_bo_sung(ma_chung_chi))
 
 
-# --- Sprint 1: Tinh diem quy doi (Thí sinh, no auth) ---
-@router.post("/quy-doi", response_model=QuyDoiResponse)
-def tinh_diem_quy_doi(
-    payload: QuyDoiRequest,
-    service: DiemChuanService = Depends(get_diem_chuan_service),
-) -> QuyDoiResponse:
-    return service.tinh_diem_quy_doi(payload)
+@router.post("/quy-doi", response_model=QuyDoiDiemResponse)
+def quy_doi_diem(
+    payload: QuyDoiDiemRequest,
+    _user: CurrentUser = Depends(get_current_user),
+) -> QuyDoiDiemResponse:
+    # A pure calculation: no DB dependency and no cross-service file access.
+    return QuyDoiDiemResponse(
+        phuong_thuc=payload.phuong_thuc,
+        diem_goc=payload.diem,
+        diem_thpt=convert_to_thpt(payload.phuong_thuc, payload.diem, payload.nam_tuyen_sinh),
+        nam_tuyen_sinh=payload.nam_tuyen_sinh,
+    )

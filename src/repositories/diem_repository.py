@@ -31,39 +31,41 @@ class DiemRepository(DiemRepositoryInterface):
     def upsert_bang_diem_tnthpt(
         self, cccd: str, nam_hoc: int, diem_mon: list[DiemMonThpt]
     ) -> BangDiem:
-        bang = self.get_bang_diem_tnthpt(cccd, nam_hoc)
-        if bang is None:
-            bang = BangDiem(
-                ma_bang_diem=str(uuid4()),
-                cccd=cccd,
-                loai_diem=LoaiBangDiem.tnTHPT,
-                nam_hoc=nam_hoc,
-            )
-            self.db.add(bang)
-            self.db.flush()
-        else:
-            existing = list(
-                self.db.scalars(
-                    select(DiemChiTiet).where(DiemChiTiet.ma_bang_diem == bang.ma_bang_diem)
-                ).all()
-            )
-            for row in existing:
-                self.db.delete(row)
-            self.db.flush()
-
-        for mon in diem_mon:
-            self.db.add(
-                DiemChiTiet(
-                    ma_chi_tiet=str(uuid4()),
-                    ma_bang_diem=bang.ma_bang_diem,
-                    ma_mon=mon.ma_mon,
-                    diem_so=mon.diem_so,
+        with self.db.begin_nested():
+            bang = self.get_bang_diem_tnthpt(cccd, nam_hoc)
+            if bang is None:
+                bang = BangDiem(
+                    ma_bang_diem=str(uuid4()),
+                    cccd=cccd,
+                    loai_diem=LoaiBangDiem.tnTHPT,
+                    nam_hoc=nam_hoc,
                 )
-            )
-        return bang
+                self.db.add(bang)
+                self.db.flush()
+            else:
+                existing = list(
+                    self.db.scalars(
+                        select(DiemChiTiet).where(DiemChiTiet.ma_bang_diem == bang.ma_bang_diem)
+                    ).all()
+                )
+                for row in existing:
+                    self.db.delete(row)
+                self.db.flush()
+
+            for mon in diem_mon:
+                self.db.add(
+                    DiemChiTiet(
+                        ma_chi_tiet=str(uuid4()),
+                        ma_bang_diem=bang.ma_bang_diem,
+                        ma_mon=mon.ma_mon,
+                        diem_so=mon.diem_so,
+                    )
+                )
+            self.db.flush()
+            return bang
 
     def list_lo_trinh(self, nam_tuyen_sinh: int) -> list[LoTrinhTuyenSinh]:
-        stmt = select(LoTrinhTuyenSinh).where(LoTrinhTuyenSinh.nam_tuyen_sinh == nam_tuyen_sinh)
+        stmt = select(LoTrinhTuyenSinh).where(extract("year", LoTrinhTuyenSinh.thoi_gian_bat_dau) == nam_tuyen_sinh)
         return list(self.db.scalars(stmt).all())
 
     def find_dgnl_trung(self, cccd: str, nam: int) -> ChungChi | None:
