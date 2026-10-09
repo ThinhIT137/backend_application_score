@@ -1,4 +1,5 @@
-﻿from datetime import datetime
+﻿import math
+from datetime import datetime
 from src.core.constants import DIEM_HOP_LE, DIEM_UU_TIEN_TOI_DA
 from src.core.exceptions import DuLieuKhongHopLe
 from src.models.diem_chuan import DiemTrungTuyen, LichSuDiemChuan
@@ -84,6 +85,18 @@ class DiemChuanService(DiemChuanServiceInterface):
         )
         return self.repo.add_diem_trung_tuyen(dtt)
 
+    def _validate_finite(self, value: float, label: str) -> float:
+        if not math.isfinite(value):
+            raise DuLieuKhongHopLe(f"{label} phải là số hữu hạn")
+        return value
+
+    def _normalize_loai_chung_chi(self, loai: str) -> str:
+        return loai.strip().upper().replace("-", "_")
+
+    def _co_quy_tac_ho_tro(self, loai: str) -> bool:
+        normalized = self._normalize_loai_chung_chi(loai)
+        return normalized in DIEM_HOP_LE
+
     def _tinh_diem_uu_tien(self, doi_tuong: str | None) -> float:
         if not doi_tuong:
             return 0.0
@@ -109,8 +122,14 @@ class DiemChuanService(DiemChuanServiceInterface):
     def tinh_diem_quy_doi(self, payload: QuyDoiRequest) -> QuyDoiResponse:
         canh_bao: list[str] = []
 
+        if not payload.diem_thpt and not payload.chung_chi:
+            raise DuLieuKhongHopLe("Cần ít nhất một điểm THPT hoặc một điểm chứng chỉ để tính quy đổi")
+
+        available_methods = 0
+
         # 1. Validate diem THPT
         for item in payload.diem_thpt:
+            self._validate_finite(item.diem, f"Điểm THPT môn {item.ma_mon}")
             cfg = DIEM_HOP_LE.get("THPT")
             if cfg:
                 min_v, max_v, step = cfg
@@ -125,19 +144,29 @@ class DiemChuanService(DiemChuanServiceInterface):
 
         # 2. Validate chung chi
         for cc in payload.chung_chi:
-            key = cc.loai.upper().replace("-", "_")
+            self._validate_finite(cc.diem, f"Điểm chứng chỉ {cc.loai}")
+            key = self._normalize_loai_chung_chi(cc.loai)
             cfg = DIEM_HOP_LE.get(key)
             if not cfg:
-                canh_bao.append(f"Chưa có cấu hình kiểm tra cho loại chứng chỉ {cc.loai}")
-            else:
-                min_v, max_v, step = cfg
-                if not (min_v <= cc.diem <= max_v):
-                    canh_bao.append(
-                        f"Điểm chứng chỉ {cc.loai} ({cc.diem}) nằm ngoài dải hợp lệ [{min_v}, {max_v}]"
-                    )
+                canh_bao.append(
+                    f"Loại chứng chỉ {cc.loai} không được hỗ trợ cho quy đổi trong cấu hình hiện tại."
+                )
+                continue
+            available_methods += 1
+            min_v, max_v, step = cfg
+            if not (min_v <= cc.diem <= max_v):
+                canh_bao.append(
+                    f"Điểm chứng chỉ {cc.loai} ({cc.diem}) nằm ngoài dải hợp lệ [{min_v}, {max_v}]"
+                )
 
         # 3. Diem uu tien
         diem_ut = self._tinh_diem_uu_tien(payload.doi_tuong_uu_tien)
+
+        if not payload.diem_thpt and available_methods == 0:
+            raise DuLieuKhongHopLe(
+                "Không có phương thức quy đổi hợp lệ nào cho dữ liệu đã nhập. "
+                "Vui lòng kiểm tra loại chứng chỉ hoặc điểm THPT."
+            )
 
         # 4. Tinh diem theo tung phuong thuc
         chi_tiet: list[PhuongThucQuyDoiItem] = []
@@ -174,7 +203,7 @@ class DiemChuanService(DiemChuanServiceInterface):
             )
 
         # Phg thuc 3: Xet Chung chi quoc te (IELTS, SAT, ACT...)
-        cc_map = {c.loai.upper().replace("-", "_"): c.diem for c in payload.chung_chi}
+        cc_map = {self._normalize_loai_chung_chi(c.loai): c.diem for c in payload.chung_chi}
         sat = cc_map.get("SAT")
         act = cc_map.get("ACT")
         ielts = cc_map.get("IELTS")
@@ -257,6 +286,11 @@ class DiemChuanService(DiemChuanServiceInterface):
                 reverse=True,
             )
             phuong_thuc_tot_nhat = sorted_pt[0].ma_phuong_thuc
+
+        if not chi_tiet:
+            raise DuLieuKhongHopLe(
+                "Không có phương thức tính quy đổi hợp lệ nào có thể tạo ra kết quả từ dữ liệu đã nhập."
+            )
 
         return QuyDoiResponse(
             diem_uu_tien=diem_ut,

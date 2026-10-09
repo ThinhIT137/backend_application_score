@@ -1,7 +1,8 @@
-﻿from datetime import datetime
+﻿import math
+from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class DiemTrungTuyenItem(BaseModel):
@@ -50,3 +51,26 @@ class ThemDiemTrungTuyenRequest(BaseModel):
     nguyen_vong_toi_da: int | None = Field(default=None, ge=1)
     dieu_kien_mon: Any = None
     diem_uu_tien_toi_thieu: float | None = Field(default=None, ge=0.0)
+
+    @field_validator("ma_diem_tt", "ma_phuong_thuc", mode="before")
+    @classmethod
+    def normalize_required_text(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = str(value).strip()
+        if not value:
+            raise ValueError("Trường bắt buộc không được để trống")
+        return value
+
+    @field_validator("diem", "diem_uu_tien_toi_thieu", mode="before")
+    @classmethod
+    def validate_finite_number(cls, value: float | str | None, info):
+        if value is None:
+            return value
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{info.field_name} phải là số hợp lệ") from exc
+        if not math.isfinite(numeric):
+            raise ValueError(f"{info.field_name} phải là số hữu hạn")
+        return numeric

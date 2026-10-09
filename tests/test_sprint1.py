@@ -1,4 +1,5 @@
 ﻿import pytest
+from pydantic import ValidationError
 from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
 from jose import jwt
@@ -81,6 +82,26 @@ def test_tinh_diem_quy_doi_canh_bao():
     assert len(res.canh_bao) >= 2
 
 
+def test_tinh_diem_quy_doi_require_at_least_one_score():
+    """Request rỗng phải bị từ chối thay vì trả điểm giả."""
+    with pytest.raises(ValidationError):
+        QuyDoiRequest(diem_thpt=[], chung_chi=[])
+
+
+def test_tinh_diem_quy_doi_warns_for_unsupported_method_without_blocking_valid_ones():
+    """Loại chứng chỉ chưa hỗ trợ chỉ cần cảnh báo, không phá vỡ phương thức hợp lệ khác."""
+    mock_repo = MagicMock(spec=DiemChuanRepositoryInterface)
+    service = DiemChuanService(mock_repo)
+
+    req = QuyDoiRequest(
+        diem_thpt=[DiemThptInput(ma_mon="toan", diem=8.0)],
+        chung_chi=[DiemChungChiInput(loai="GRE", diem=320)],
+    )
+    res = service.tinh_diem_quy_doi(req)
+    assert any("GRE" in warning or "không hỗ trợ" in warning for warning in res.canh_bao)
+    assert any(item.ma_phuong_thuc == "PT100" for item in res.chi_tiet)
+
+
 # ---------------------------------------------------------------------------
 # Feature 1: Quan ly diem chuan (Admin API Auth & Service CRUD)
 # ---------------------------------------------------------------------------
@@ -149,6 +170,15 @@ def test_service_crud_diem_chuan():
 # ---------------------------------------------------------------------------
 # Feature 3 & 4: Nop ho so & Tra cuu (API & Service)
 # ---------------------------------------------------------------------------
+
+
+def test_api_tra_cuu_public_lookup_by_cccd_or_ma_ho_so():
+    """GET /ho-so/tra-cuu cho phep tra cuu cong khai theo CCCD hoac ma ho so, khong can dang nhap."""
+    resp = client.get("/ho-so/tra-cuu?cccd=999999999999")
+    assert resp.status_code in {404, 400}
+
+    resp = client.get("/ho-so/tra-cuu?ma_ho_so=HS-TEST-001")
+    assert resp.status_code in {404, 400}
 
 
 def test_api_tra_cuu_validation():

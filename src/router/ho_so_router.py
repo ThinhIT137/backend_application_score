@@ -2,6 +2,7 @@
 from sqlalchemy.orm import Session
 
 from src.core.database import get_db
+from src.core.exceptions import DuLieuKhongHopLe
 from src.core.security import CurrentUser, require_admin
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 from src.repositories.diem_repository import DiemRepository
@@ -52,7 +53,14 @@ def tra_cuu_ho_so(
     nam_tuyen_sinh: int | None = Query(default=None),
     service: HoSoService = Depends(get_ho_so_service),
 ) -> list[TraCuuHoSoItem]:
-    records = service.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh)
+    if not ma_ho_so and not cccd:
+        raise DuLieuKhongHopLe("Vui lòng cung cấp mã hồ sơ hoặc số CCCD để tra cứu")
+
+    records = service.tra_cuu(
+        ma_ho_so=ma_ho_so,
+        cccd=cccd,
+        nam_tuyen_sinh=nam_tuyen_sinh,
+    )
     results = []
     for r in records:
         tl = "da_nop"

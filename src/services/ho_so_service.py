@@ -230,6 +230,7 @@ class HoSoService(HoSoServiceInterface):
         ma_ho_so: str | None = None,
         cccd: str | None = None,
         nam_tuyen_sinh: int | None = None,
+        user_cccd: str | None = None,
     ) -> list[NguyenVongSinhVien]:
         if not ma_ho_so and not cccd:
             raise DuLieuKhongHopLe("Vui lòng cung cấp mã hồ sơ hoặc số CCCD để tra cứu")
@@ -240,8 +241,7 @@ class HoSoService(HoSoServiceInterface):
                 raise HoSoNotFound(f"Không tìm thấy hồ sơ với mã {ma_ho_so}")
             return [hs]
 
-        # Tra cuu theo CCCD
-        cccd_clean = cccd.strip() if cccd else ""
+        cccd_clean = (cccd or user_cccd or "").strip()
         if len(cccd_clean) != 12 or not cccd_clean.isdigit():
             raise DuLieuKhongHopLe("Số CCCD phải gồm đúng 12 chữ số")
 

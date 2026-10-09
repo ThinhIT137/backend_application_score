@@ -1,10 +1,53 @@
-﻿from pydantic import BaseModel, Field
+﻿import math
+
+from pydantic import BaseModel, Field, field_validator, model_validator
+
+MON_HOC_HOP_LE = {
+    "toan",
+    "van",
+    "anh",
+    "vat_ly",
+    "hoa_hoc",
+    "sinh_hoc",
+    "dia_ly",
+    "lich_su",
+    "gdcd",
+    "tin_hoc",
+}
 
 
 class DiemThptInput(BaseModel):
     """Diem thi THPT tung mon (0-10, buoc 0.25)."""
     ma_mon: str = Field(min_length=1, description="Ma mon hoc (vi du: toan, van, anh...)")
     diem: float = Field(ge=0.0, description="Diem so mon thi")
+
+    @field_validator("ma_mon", mode="before")
+    @classmethod
+    def normalize_ma_mon(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = str(value).strip().lower()
+        if not value:
+            raise ValueError("Mã môn không được để trống")
+        if value not in MON_HOC_HOP_LE:
+            raise ValueError(
+                "Mã môn không hợp lệ. Chỉ chấp nhận các môn theo danh mục của dự án: "
+                "toan, van, anh, vat_ly, hoa_hoc, sinh_hoc, dia_ly, lich_su, gdcd, tin_hoc"
+            )
+        return value
+
+    @field_validator("diem", mode="before")
+    @classmethod
+    def validate_diem(cls, value: float | str | None) -> float | None:
+        if value is None:
+            return value
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Điểm phải là số hợp lệ") from exc
+        if not math.isfinite(numeric):
+            raise ValueError("Điểm phải là số hữu hạn (không được là NaN hoặc vô cực)")
+        return numeric
 
 
 class DiemChungChiInput(BaseModel):
@@ -14,6 +57,29 @@ class DiemChungChiInput(BaseModel):
         description="Loai chung chi: IELTS / TOEFL_IBT / TOEIC / SAT / ACT / HSA / VACT / TSA",
     )
     diem: float = Field(ge=0.0, description="Diem so")
+
+    @field_validator("loai", mode="before")
+    @classmethod
+    def normalize_loai(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        value = str(value).strip().upper().replace("-", "_")
+        if not value:
+            raise ValueError("Loại chứng chỉ không được để trống")
+        return value
+
+    @field_validator("diem", mode="before")
+    @classmethod
+    def validate_diem(cls, value: float | str | None) -> float | None:
+        if value is None:
+            return value
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Điểm chứng chỉ phải là số hợp lệ") from exc
+        if not math.isfinite(numeric):
+            raise ValueError("Điểm chứng chỉ phải là số hữu hạn")
+        return numeric
 
 
 class QuyDoiRequest(BaseModel):
@@ -44,6 +110,12 @@ class QuyDoiRequest(BaseModel):
         default=None,
         description="Chuong trinh dao tao muon so sanh (bo trong = tat ca nganh)",
     )
+
+    @model_validator(mode="after")
+    def validate_has_score_data(self):
+        if not self.diem_thpt and not self.chung_chi:
+            raise ValueError("Cần ít nhất một điểm THPT hoặc một điểm chứng chỉ để tính quy đổi")
+        return self
 
 
 class PhuongThucQuyDoiItem(BaseModel):

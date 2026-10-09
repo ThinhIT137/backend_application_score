@@ -1,6 +1,7 @@
+import math
 from datetime import datetime
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from src.models.trang_thai_ho_so import TrangThaiDuyet
 
@@ -41,6 +42,29 @@ class NopDgnlRequest(BaseModel):
     ngay_cap: datetime
     ngay_het_han: datetime | None = None
     file_dinh_kem: str = Field(min_length=1)
+
+    @field_validator("cccd", "file_dinh_kem", mode="before")
+    @classmethod
+    def normalize_text_fields(cls, value: str | None, info):
+        if value is None:
+            return value
+        value = str(value).strip()
+        if not value:
+            raise ValueError(f"{info.field_name} không được để trống")
+        return value
+
+    @field_validator("diem", mode="before")
+    @classmethod
+    def validate_diem(cls, value: float | str | None) -> float | None:
+        if value is None:
+            return value
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Điểm ĐGNL phải là số hợp lệ") from exc
+        if not math.isfinite(numeric):
+            raise ValueError("Điểm ĐGNL phải là số hữu hạn")
+        return numeric
 
 
 class ChungChiDgnlItem(BaseModel):
