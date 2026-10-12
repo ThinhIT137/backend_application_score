@@ -4,10 +4,12 @@ from uuid import uuid4
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from src.core.exceptions import DuLieuKhongHopLe, HoSoNotFound, TrangThaiKhongHopLe
-from src.models.admission import ChuongTrinhDaoTao, PhuongThucXetTuyen, ToHopXetTuyen, LichSuDiemChuan, DiemTrungTuyen
-from src.models.diem_chuan import BangDiem, DiemChiTiet, ChungChi
+from src.models.admission import ChuongTrinhDaoTao, PhuongThucXetTuyen, ToHopXetTuyen
+from src.models.diem_chuan import DiemTrungTuyen, LichSuDiemChuan
+from src.models.diem_thi_sinh import BangDiem, DiemChiTiet, ChungChi
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.tham_chieu import ThiSinh, DanhMucMonHoc, GiaiThuong
+from src.models.giai_thuong import GiaiThuong
+from src.models.tham_chieu import ThiSinh, DanhMucMonHoc
 from src.models.trang_thai_ho_so import TrangThaiDuyet, NguonDuLieu
 from src.schemas.admission_schema import CutoffInput, Submission
 

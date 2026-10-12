@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 import pytest
 from sqlalchemy import select, func
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.diem_chuan import BangDiem, DiemChiTiet, ChungChi
+from src.models.diem_thi_sinh import BangDiem, DiemChiTiet, ChungChi
 from src.models.tham_chieu import LoTrinhTuyenSinh
 from src.services.adapters.mock_providers import MockBoGddtProvider, MockDhqgDgnlProvider
 
@@ -119,6 +119,7 @@ def test_thpt_database_failure_isolated_per_candidate(api):
 
 def test_dgnl_reject_request_and_reprocessing(api):
     data = {"diem": 100, "ngay_cap": "2026-01-01T00:00:00", "file_dinh_kem": "e.pdf"}
+    assert api.client.post("/diem/dgnl", json=data).status_code == 401
     r = api.client.post("/diem/dgnl", json=data, headers=api.student)
     key = r.json()["ma_chung_chi"]
     assert len(api.client.get("/diem/dgnl/cho-xac-minh", headers=api.admin).json()) == 1

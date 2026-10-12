@@ -10,6 +10,8 @@ from src.core.exceptions import DuLieuKhongHopLe, HoSoNotFound
 from src.models.diem_chuan import DiemTrungTuyen, LichSuDiemChuan
 from src.models.ho_so import NguyenVongSinhVien
 from src.models.trang_thai_ho_so import TrangThaiDuyet
+from src.router.admission_router import get_admission_service
+from src.router.ho_so_router import get_ho_so_service
 from src.repositories.diem_chuan_repository_interface import DiemChuanRepositoryInterface
 from src.repositories.ho_so_repository_interface import HoSoRepositoryInterface
 from src.schemas.diem_chuan_schema import (
@@ -44,29 +46,22 @@ def create_token(payload: dict) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_api_tinh_diem_quy_doi_no_auth_needed():
-    """POST /diem/quy-doi khong yeu cau dang nhap, tinh toan stateless."""
-    payload = {
-        "diem_thpt": [
-            {"ma_mon": "toan", "diem": 9.0},
-            {"ma_mon": "vat_ly", "diem": 8.5},
-            {"ma_mon": "hoa_hoc", "diem": 8.0},
-        ],
-        "chung_chi": [
-            {"loai": "IELTS", "diem": 7.5},
-            {"loai": "SAT", "diem": 1400.0},
-        ],
-        "doi_tuong_uu_tien": "KV1",
-    }
-    resp = client.post("/diem/quy-doi", json=payload)
+def test_api_tinh_diem_quy_doi_requires_candidate_auth():
+    """The current conversion endpoint requires candidate auth and uses the configured method contract."""
+    payload = {"phuong_thuc": "hoc_ba", "diem": 30}
+    anonymous = client.post("/diem/quy-doi", json=payload)
+    assert anonymous.status_code == 401
+
+    candidate_token = create_token({"role": "thi_sinh", "cccd": "123456789012"})
+    resp = client.post(
+        "/diem/quy-doi",
+        json=payload,
+        headers={"Authorization": f"Bearer {candidate_token}"},
+    )
     assert resp.status_code == 200
     data = resp.json()
-    assert data["diem_uu_tien"] == 0.75
-    assert len(data["chi_tiet"]) >= 3
-    # Diem THPT: 9.0 + 8.5 + 8.0 = 25.5 + 0.75 = 26.25
-    pt_thpt = next(p for p in data["chi_tiet"] if p["ma_phuong_thuc"] == "PT100")
-    assert pt_thpt["diem_quy_doi"] == 26.25
-    assert data["phuong_thuc_tot_nhat"] is not None
+    assert data["phuong_thuc"] == "hoc_ba"
+    assert data["diem_thpt"] == 30
 
 
 def test_tinh_diem_quy_doi_canh_bao():
@@ -109,6 +104,16 @@ def test_tinh_diem_quy_doi_warns_for_unsupported_method_without_blocking_valid_o
 
 def test_diem_chuan_requires_admin():
     """Cac endpoint /diem-chuan deu can quyen admin."""
+    app.dependency_overrides[get_admission_service] = lambda: MagicMock(
+        list_cutoffs=lambda *_args: []
+    )
+    try:
+        _assert_diem_chuan_auth()
+    finally:
+        app.dependency_overrides.pop(get_admission_service, None)
+
+
+def _assert_diem_chuan_auth():
     # Khong truyen token -> 401
     resp = client.get("/diem-chuan")
     assert resp.status_code == 401
@@ -174,11 +179,17 @@ def test_service_crud_diem_chuan():
 
 def test_api_tra_cuu_public_lookup_by_cccd_or_ma_ho_so():
     """GET /ho-so/tra-cuu cho phep tra cuu cong khai theo CCCD hoac ma ho so, khong can dang nhap."""
-    resp = client.get("/ho-so/tra-cuu?cccd=999999999999")
-    assert resp.status_code in {404, 400}
+    service = MagicMock()
+    service.tra_cuu.side_effect = HoSoNotFound("not found")
+    app.dependency_overrides[get_ho_so_service] = lambda: service
+    try:
+        resp = client.get("/ho-so/tra-cuu?cccd=999999999999")
+        assert resp.status_code == 404
 
-    resp = client.get("/ho-so/tra-cuu?ma_ho_so=HS-TEST-001")
-    assert resp.status_code in {404, 400}
+        resp = client.get("/ho-so/tra-cuu?ma_ho_so=HS-TEST-001")
+        assert resp.status_code == 404
+    finally:
+        app.dependency_overrides.pop(get_ho_so_service, None)
 
 
 def test_api_tra_cuu_validation():

@@ -22,6 +22,13 @@ class Settings(BaseSettings):
     jwt_audience: str | None = None
     thpt_provider: Literal["mock"] = "mock"
     dgnl_provider: Literal["mock"] = "mock"
+    email_provider: Literal["mock", "smtp"] = "mock"
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    smtp_from: str | None = None
+    smtp_use_tls: bool = True
 
 
 @lru_cache

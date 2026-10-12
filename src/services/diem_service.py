@@ -80,10 +80,9 @@ class DiemService(DiemServiceInterface):
         )
 
     def nop_dgnl(self, payload: NopDgnlRequest, user: CurrentUser | None = None) -> ChungChiDgnlItem:
-        # TODO: thay bằng JWT khi FE có đăng nhập thí sinh
-        cccd = (user.cccd if user else None) or payload.cccd
+        cccd = user.cccd if user else None
         if not cccd:
-            raise DuLieuKhongHopLe("Thiếu CCCD thí sinh")
+            raise DuLieuKhongHopLe("Cần đăng nhập bằng tài khoản thí sinh để nộp điểm ĐGNL")
         if not self.diem_repo.thi_sinh_exists(cccd):
             raise DuLieuKhongHopLe("CCCD không tồn tại trong hệ thống")
 

@@ -81,6 +81,27 @@ class CongBoKetQuaResponse(BaseModel):
     trong_moc_cong_bo: bool
     notification_triggered: bool
     idempotent: bool = False
+    tong: int | None = None
+    da_gui: int | None = None
+    thieu_email: int | None = None
+    loi: int | None = None
+    ma_ho_so_loi: list[str] = Field(default_factory=list)
+
+
+class KetQuaTraCuuItem(BaseModel):
+    ma_ho_so: str
+    cccd: str
+    ma_chuong_trinh: str
+    ma_phuong_thuc: str
+    nguyen_vong: int
+    nam_tuyen_sinh: int
+    ket_qua: str | None = None
+    trang_thai: TrangThaiDuyet | None = None
+    tong_diem_xet_tuyen: float | None = None
+    create_at: datetime
+    ket_qua_label: str | None = None
+
+    model_config = {"from_attributes": True}
 
 
 # --- Sprint 1 schemas ---

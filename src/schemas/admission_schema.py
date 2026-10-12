@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Literal
 from pydantic import BaseModel, Field, ConfigDict, model_validator
-from src.models.tham_chieu import HangGiaiThuong, CapGiaiThuong, MonHoc
+from src.models.giai_thuong import HangGiaiThuong, CapGiaiThuong, MonHoc
 from src.models.trang_thai_ho_so import LoaiBangDiem
 
 class InputModel(BaseModel):

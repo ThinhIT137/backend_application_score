@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from src.core.config import get_settings
 from src.core.database import get_db
 from src.core.security import CurrentUser, get_current_user, require_admin, require_thi_sinh
+from src.repositories.diem_chuan_repository import DiemChuanRepository
 from src.repositories.diem_repository import DiemRepository
 from src.schemas.diem_schema import (
     ChungChiDgnlItem,
@@ -43,13 +44,13 @@ def dong_bo_thpt(
     return service.dong_bo_thpt(payload)
 
 
-# TODO: thay bằng JWT khi FE có đăng nhập thí sinh
 @router.post("/dgnl", response_model=ChungChiDgnlItem)
 def nop_dgnl(
     payload: NopDgnlRequest,
+    user: CurrentUser = Depends(require_thi_sinh),
     service: DiemService = Depends(get_diem_service),
 ) -> ChungChiDgnlItem:
-    return service.nop_dgnl(payload)
+    return service.nop_dgnl(payload, user)
 
 
 @router.get("/dgnl/cho-xac-minh", response_model=list[ChungChiDgnlItem])

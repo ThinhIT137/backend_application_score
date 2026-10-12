@@ -1,5 +1,4 @@
 import pytest
-from datetime import datetime
 from fastapi.testclient import TestClient
 from jose import jwt
 from src.app import app
@@ -89,18 +88,13 @@ def test_ho_so_requires_admin_token():
     assert resp.status_code in {200, 500}  # 200 if DB reachable, not 401/403
 
 
-def test_dgnl_nop_does_not_require_jwt():
-    # Calling POST /diem/dgnl without Authorization header
+def test_dgnl_nop_requires_candidate_jwt():
     resp = client.post(
         "/diem/dgnl",
         json={
-            "cccd": "999999999999",
             "diem": 110.5,
-            "ngay_cap": datetime.now().isoformat(),
+            "ngay_cap": "2026-01-01T00:00:00",
             "file_dinh_kem": "https://storage.example.com/dgnl.pdf",
         },
     )
-    # Must NOT return 401 Unauthorized (JWT check removed)
-    assert resp.status_code != 401
-    # Returns 400 because CCCD does not exist in DB, proving it passed auth and reached service validation!
-    assert resp.status_code in {400, 422}
+    assert resp.status_code == 401

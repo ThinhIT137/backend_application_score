@@ -56,3 +56,28 @@ class HoSoServiceInterface(ABC):
         nam_tuyen_sinh: int | None = None,
     ) -> list[NguyenVongSinhVien]:
         raise NotImplementedError
+
+    @abstractmethod
+    def list_ket_qua(
+        self,
+        *,
+        nam_tuyen_sinh: int | None = None,
+        ma_chuong_trinh: str | None = None,
+        ma_phuong_thuc: str | None = None,
+        ket_qua: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[NguyenVongSinhVien]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def tra_cuu_ket_qua(
+        self,
+        *,
+        ma_ho_so: str | None = None,
+        cccd: str | None = None,
+        nam_tuyen_sinh: int | None = None,
+        nguyen_vong: int | None = None,
+        ket_qua: str | None = None,
+    ) -> list[NguyenVongSinhVien]:
+        raise NotImplementedError

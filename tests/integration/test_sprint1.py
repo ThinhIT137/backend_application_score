@@ -2,10 +2,10 @@
 from copy import deepcopy
 import pytest
 from sqlalchemy import select, func, event
-from src.models.admission import LichSuDiemChuan, DiemTrungTuyen
+from src.models.diem_chuan import LichSuDiemChuan, DiemTrungTuyen
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.diem_chuan import BangDiem, DiemChiTiet, ChungChi
-from src.models.tham_chieu import GiaiThuong
+from src.models.diem_thi_sinh import BangDiem, DiemChiTiet, ChungChi
+from src.models.giai_thuong import GiaiThuong
 
 def cutoff():
     return {"ma_chuong_trinh": "P1", "nam": 2025, "chi_tieu": 100,
@@ -138,3 +138,7 @@ def test_cutoff_update_duplicate_and_foreign_reference_keeps_original(api):
 def test_lookup_missing_and_unauthenticated(api):
     assert api.client.get("/ho-so/cua-toi/missing", headers=api.student).status_code == 404
     assert api.client.get("/ho-so/cua-toi/missing").status_code == 401
+
+def test_public_lookup_requires_identifier(api):
+    response = api.client.get("/ho-so/tra-cuu")
+    assert response.status_code == 400
