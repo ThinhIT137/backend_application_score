@@ -75,6 +75,18 @@ def test_repeat_publication_does_not_renotify(profile, record):
     assert not result.notification_triggered
     notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
 
+
+def test_publication_marks_rejected_record_with_existing_reason(profile, record):
+    service, _, _, notify = publication(profile, record)
+    record.trang_thai = TrangThaiDuyet.tu_choi
+    record.ket_qua = "Thiếu minh chứng"
+
+    result = service.cong_bo_ket_qua(CongBoKetQuaRequest(nam_tuyen_sinh=2026))
+
+    assert record.ket_qua == "Không đủ điều kiện (đã công bố): Thiếu minh chứng"
+    assert not result.idempotent
+    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+
 @pytest.mark.parametrize("offset,expected", [(-1, False), (0, True), (1, False)])
 def test_publication_exact_time_boundary(profile, offset, expected):
     service, _, scores, _ = profile

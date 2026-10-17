@@ -1,4 +1,5 @@
 ﻿from src.models.diem_chuan import DiemTrungTuyen, LichSuDiemChuan
+from src.models.admission import NganhHoc
 from src.models.diem_thi_sinh import BangDiem, ChungChi, DiemChiTiet
 from src.models.giai_thuong import CapGiaiThuong, GiaiThuong, HangGiaiThuong, MonHoc
 from src.models.ho_so import NguyenVongSinhVien
@@ -19,6 +20,7 @@ __all__ = [
     "LoTrinhTuyenSinh",
     "LoaiBangDiem",
     "MonHoc",
+    "NganhHoc",
     "NguonDuLieu",
     "NguyenVongSinhVien",
     "ThiSinh",

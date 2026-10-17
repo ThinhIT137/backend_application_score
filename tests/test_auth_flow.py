@@ -6,7 +6,8 @@ from src.core.config import get_settings
 from src.core.security import _normalize_role, decode_token, CurrentUser
 from fastapi.security import HTTPAuthorizationCredentials
 
-client = TestClient(app)
+# These tests exercise HTTP authorization even when a local production DB is absent.
+client = TestClient(app, raise_server_exceptions=False)
 settings = get_settings()
 
 

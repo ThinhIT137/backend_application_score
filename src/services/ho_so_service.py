@@ -37,6 +37,10 @@ def _is_moc_cong_bo(moc: LoTrinhTuyenSinh) -> bool:
     return any(token in haystack for token in ("cong_bo", "công bố", "cong bo"))
 
 
+def _is_published_result(value: str | None) -> bool:
+    return "đã công bố" in (value or "").lower()
+
+
 class HoSoService(HoSoServiceInterface):
     def __init__(
         self,
@@ -152,13 +156,16 @@ class HoSoService(HoSoServiceInterface):
         )
         changed_records: list[NguyenVongSinhVien] = []
         for ho_so in records:
-            if ho_so.ket_qua:
+            if _is_published_result(ho_so.ket_qua):
                 continue
             changed_records.append(ho_so)
             if ho_so.trang_thai == TrangThaiDuyet.hop_le:
                 ho_so.ket_qua = "Đủ điều kiện xét tuyển (đã công bố)"
             elif ho_so.trang_thai == TrangThaiDuyet.tu_choi:
+                reason = (ho_so.ket_qua or "").strip()
                 ho_so.ket_qua = "Không đủ điều kiện (đã công bố)"
+                if reason:
+                    ho_so.ket_qua = f"{ho_so.ket_qua}: {reason}"
 
         notification_report: dict[str, object] = {
             "tong": 0,

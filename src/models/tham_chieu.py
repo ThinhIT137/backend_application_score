@@ -13,6 +13,10 @@ class ThiSinh(Base):
     __tablename__ = "thi_sinh"
 
     cccd: Mapped[str] = mapped_column(String(12), primary_key=True)
+    ho_ten: Mapped[str | None] = mapped_column(String, nullable=True)
+    so_dien_thoai: Mapped[str | None] = mapped_column(String, nullable=True)
+    khu_vuc: Mapped[str | None] = mapped_column(String, nullable=True)
+    doi_tuong_uu_tien: Mapped[str | None] = mapped_column(String, nullable=True)
 
 
 class Admin(Base):
