@@ -23,13 +23,68 @@ def test_submit_lookup_approve_publish(api, submission):
     assert api.client.patch(f"/ho-so/{key}/duyet", headers=api.admin).json()["trang_thai"] == "hop_le"
     assert api.client.patch(f"/ho-so/{key}/duyet", headers=api.admin).status_code == 409
     first = api.client.post("/ho-so/cong-bo-ket-qua", json=payload, headers=api.admin)
-    assert first.status_code == 200, first.text
-    assert first.json()["notification_triggered"] is False  # No-op publisher is reported honestly.
+    assert first.status_code == 400, first.text
     own = api.client.get(f"/ho-so/cua-toi/{key}", headers=api.student).json()
-    assert own["ket_qua"]
+    assert own["ket_qua"] is None
     second = api.client.post("/ho-so/cong-bo-ket-qua", json=payload, headers=api.admin)
-    assert second.status_code == 200
-    assert api.client.get(f"/ho-so/cua-toi/{key}", headers=api.student).json()["ket_qua"] == own["ket_qua"]
+    assert second.status_code == 400
+
+def test_public_result_lookup_is_explicitly_unpublished_and_checks_ids(api, submission):
+    key = submit(api, submission)
+    assert api.client.patch(f"/ho-so/{key}/duyet", headers=api.admin).status_code == 200
+
+    missing = api.client.get("/ho-so/ket-qua/tra-cuu")
+    assert missing.status_code == 400
+    invalid_filter = api.client.get(
+        f"/ho-so/ket-qua/tra-cuu?ma_ho_so={key}&ket_qua=hop_le"
+    )
+    assert invalid_filter.status_code == 422
+
+    response = api.client.get(f"/ho-so/ket-qua/tra-cuu?ma_ho_so={key}")
+    assert response.status_code == 200
+    assert response.json() == {
+        "trang_thai_cong_bo": "chua_cong_bo",
+        "thong_bao": "Chưa có kết quả xét tuyển đã được xác nhận và công bố.",
+        "items": [],
+    }
+
+    mismatch = api.client.get(
+        f"/ho-so/ket-qua/tra-cuu?ma_ho_so={key}&cccd=000000000002"
+    )
+    assert mismatch.status_code == 404
+
+def test_admin_result_list_requires_admin_and_returns_unpublished_state(api):
+    assert api.client.get("/ho-so/ket-qua?nam_tuyen_sinh=2026").status_code == 401
+    assert api.client.get(
+        "/ho-so/ket-qua?nam_tuyen_sinh=2026", headers=api.student
+    ).status_code == 403
+
+    response = api.client.get(
+        "/ho-so/ket-qua?nam_tuyen_sinh=2026", headers=api.admin
+    )
+    assert response.status_code == 200
+    assert response.json()["trang_thai_cong_bo"] == "chua_cong_bo"
+    assert response.json()["items"] == []
+
+def test_cors_allows_local_frontend_without_credentials(api):
+    allowed = api.client.options(
+        "/health",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert allowed.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert "access-control-allow-credentials" not in allowed.headers
+
+    rejected = api.client.options(
+        "/health",
+        headers={
+            "Origin": "https://untrusted.example",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+    assert "access-control-allow-origin" not in rejected.headers
 
 def test_rejection_persists_reason(api, submission):
     key = submit(api, submission)

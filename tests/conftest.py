@@ -1,10 +1,35 @@
 import sys
+import os
 from pathlib import Path
 from types import SimpleNamespace
 from datetime import datetime
 from unittest.mock import Mock
 import pytest
+from sqlalchemy import create_engine
+from sqlalchemy.pool import StaticPool
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+os.environ["DATABASE_URL"] = "sqlite://"
+os.environ["JWT_SECRET"] = "backend-tests-only-not-for-deployment"
+os.environ["JWT_ACCESSTOKEN"] = "backend-tests-only-not-for-deployment"
+os.environ["EMAIL_PROVIDER"] = "mock"
+os.environ["CORS_ALLOWED_ORIGINS"] = '["http://localhost:3000","http://127.0.0.1:3000"]'
+from src.core.config import get_settings
+from src.core import database
+from src import models
+import src.models.admission
+
+get_settings.cache_clear()
+
+test_engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+database.Base.metadata.create_all(test_engine)
+database._engine = test_engine
+database.SessionLocal.configure(bind=test_engine, expire_on_commit=False)
+
 from src.services.ho_so_service import HoSoService
 from src.services.diem_service import DiemService
 from src.models.trang_thai_ho_so import TrangThaiDuyet, NguonDuLieu

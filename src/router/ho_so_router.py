@@ -1,7 +1,9 @@
 ﻿from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
+from typing import Literal
 
 from src.core.database import get_db
+from src.core.config import get_settings
 from src.core.exceptions import DuLieuKhongHopLe
 from src.core.security import CurrentUser, require_admin, require_thi_sinh
 from src.models.trang_thai_ho_so import TrangThaiDuyet
@@ -10,19 +12,25 @@ from src.repositories.ho_so_repository import HoSoRepository
 from src.schemas.ho_so_schema import (
     CongBoKetQuaRequest,
     CongBoKetQuaResponse,
+    DanhSachKetQuaResponse,
     HoSoDetail,
     HoSoListItem,
+    KetQuaTraCuuResponse,
     TraCuuHoSoItem,
     TuChoiHoSoRequest,
 )
-from src.services.adapters.notification import NoOpNotificationPublisher
+from src.services.adapters.notification import build_notification_publisher
 from src.services.ho_so_service import HoSoService
 
 router = APIRouter(prefix="/ho-so", tags=["ho-so"])
 
 
 def get_ho_so_service(db: Session = Depends(get_db)) -> HoSoService:
-    return HoSoService(HoSoRepository(db), DiemRepository(db), NoOpNotificationPublisher())
+    return HoSoService(
+        HoSoRepository(db),
+        DiemRepository(db),
+        build_notification_publisher(get_settings()),
+    )
 
 
 # --- Sprint 1: Tra cứu trạng thái hồ sơ (Thí sinh, no auth) ---
@@ -67,52 +75,40 @@ def tra_cuu_ho_so(
 
 
 # --- Sprint 2: Quản lý & duyệt hồ sơ (Admin) ---
-@router.get("/ket-qua/tra-cuu", response_model=list[TraCuuHoSoItem])
+@router.get("/ket-qua/tra-cuu", response_model=KetQuaTraCuuResponse)
 def tra_cuu_ket_qua(
     ma_ho_so: str | None = Query(default=None),
     cccd: str | None = Query(default=None),
     nam_tuyen_sinh: int | None = Query(default=None),
     nguyen_vong: int | None = Query(default=None),
-    ket_qua: str | None = Query(default=None),
+    ket_qua: Literal["trung_tuyen", "khong_trung_tuyen"] | None = Query(default=None),
     service: HoSoService = Depends(get_ho_so_service),
-) -> list[TraCuuHoSoItem]:
-    records = service.tra_cuu_ket_qua(
+) -> KetQuaTraCuuResponse:
+    service.tra_cuu_ket_qua(
         ma_ho_so=ma_ho_so,
         cccd=cccd,
         nam_tuyen_sinh=nam_tuyen_sinh,
         nguyen_vong=nguyen_vong,
         ket_qua=ket_qua,
     )
-    results: list[TraCuuHoSoItem] = []
-    for r in records:
-        results.append(
-            TraCuuHoSoItem(
-                ma_ho_so=r.ma_ho_so,
-                cccd=r.cccd,
-                ma_chuong_trinh=r.ma_chuong_trinh,
-                ma_phuong_thuc=r.ma_phuong_thuc,
-                nguyen_vong=r.nguyen_vong,
-                nam_tuyen_sinh=r.nam_tuyen_sinh,
-                trang_thai=r.trang_thai,
-                ket_qua=r.ket_qua,
-                create_at=r.create_at,
-                timeline_trang_thai=("trung_tuyen" if r.trang_thai == TrangThaiDuyet.hop_le else "khong_trung_tuyen" if r.trang_thai == TrangThaiDuyet.tu_choi else "da_nop"),
-            )
-        )
-    return results
+    return KetQuaTraCuuResponse(
+        trang_thai_cong_bo="chua_cong_bo",
+        thong_bao="Chưa có kết quả xét tuyển đã được xác nhận và công bố.",
+        items=[],
+    )
 
 
-@router.get("/ket-qua", response_model=list[TraCuuHoSoItem])
+@router.get("/ket-qua", response_model=DanhSachKetQuaResponse)
 def list_ket_qua(
     _admin: CurrentUser = Depends(require_admin),
     service: HoSoService = Depends(get_ho_so_service),
     nam_tuyen_sinh: int | None = Query(default=None),
     ma_chuong_trinh: str | None = Query(default=None),
     ma_phuong_thuc: str | None = Query(default=None),
-    ket_qua: str | None = Query(default=None),
+    ket_qua: Literal["trung_tuyen", "khong_trung_tuyen"] | None = Query(default=None),
     page: int = Query(default=1, ge=1),
     page_size: int = Query(default=20, ge=1, le=100),
-) -> list[TraCuuHoSoItem]:
+) -> DanhSachKetQuaResponse:
     items = service.list_ket_qua(
         nam_tuyen_sinh=nam_tuyen_sinh,
         ma_chuong_trinh=ma_chuong_trinh,
@@ -121,23 +117,13 @@ def list_ket_qua(
         page=page,
         page_size=page_size,
     )
-    results: list[TraCuuHoSoItem] = []
-    for r in items:
-        results.append(
-            TraCuuHoSoItem(
-                ma_ho_so=r.ma_ho_so,
-                cccd=r.cccd,
-                ma_chuong_trinh=r.ma_chuong_trinh,
-                ma_phuong_thuc=r.ma_phuong_thuc,
-                nguyen_vong=r.nguyen_vong,
-                nam_tuyen_sinh=r.nam_tuyen_sinh,
-                trang_thai=r.trang_thai,
-                ket_qua=r.ket_qua,
-                create_at=r.create_at,
-                timeline_trang_thai=("trung_tuyen" if r.trang_thai == TrangThaiDuyet.hop_le else "khong_trung_tuyen" if r.trang_thai == TrangThaiDuyet.tu_choi else "da_nop"),
-            )
-        )
-    return results
+    return DanhSachKetQuaResponse(
+        trang_thai_cong_bo="chua_cong_bo",
+        page=page,
+        page_size=page_size,
+        total=len(items),
+        items=[],
+    )
 
 
 @router.get("", response_model=list[HoSoListItem])

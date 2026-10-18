@@ -10,6 +10,7 @@ FROM base AS test
 COPY requirements-test.txt .
 RUN pip install --no-cache-dir -r requirements-test.txt
 COPY tests/ ./tests/
+ENV DATABASE_URL=sqlite:// JWT_SECRET=backend-tests-only-not-for-deployment JWT_ACCESSTOKEN=backend-tests-only-not-for-deployment
 ENV PYTEST_DISABLE_PLUGIN_AUTOLOAD=1
 CMD ["python", "-B", "-m", "pytest", "-p", "no:cacheprovider", "tests", "-q"]
 

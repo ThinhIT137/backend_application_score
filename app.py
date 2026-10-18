@@ -2,19 +2,21 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import uvicorn
 
+from src.core.config import get_settings
 from src.core.exceptions import register_exception_handlers
 from src.router.diem_router import router as diem_router
 from src.router.ho_so_router import router as ho_so_router
 from src.router.admission_router import router as admission_router
 
 app = FastAPI(title="backend_application_score", version="0.1.0")
+settings = get_settings()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=settings.cors_allowed_origins,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 register_exception_handlers(app)

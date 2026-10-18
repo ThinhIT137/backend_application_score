@@ -1,4 +1,5 @@
 ﻿from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
@@ -156,3 +157,29 @@ class TraCuuHoSoItem(BaseModel):
     timeline_trang_thai: str = "da_nop"
 
     model_config = {"from_attributes": True}
+
+
+class KetQuaTuyenSinhItem(BaseModel):
+    ma_ho_so: str
+    nam_tuyen_sinh: int
+    ma_chuong_trinh: str
+    ten_chuong_trinh: str | None = None
+    ma_nganh: str | None = None
+    ten_nganh: str | None = None
+    ma_phuong_thuc: str
+    nguyen_vong: int
+    tong_diem_xet_tuyen: float | None = None
+    ket_qua: Literal["trung_tuyen", "khong_trung_tuyen"]
+
+
+class KetQuaTraCuuResponse(BaseModel):
+    trang_thai_cong_bo: Literal["chua_cong_bo", "da_cong_bo"]
+    thong_bao: str
+    items: list[KetQuaTuyenSinhItem] = Field(default_factory=list)
+
+class DanhSachKetQuaResponse(BaseModel):
+    trang_thai_cong_bo: Literal["chua_cong_bo", "da_cong_bo"]
+    page: int
+    page_size: int
+    total: int
+    items: list[TraCuuHoSoItem] = Field(default_factory=list)

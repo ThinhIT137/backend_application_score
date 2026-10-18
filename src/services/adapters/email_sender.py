@@ -33,6 +33,7 @@ class SmtpEmailSender(EmailSender):
         password: str | None = None,
         use_tls: bool = True,
         from_addr: str | None = None,
+        timeout: float = 15.0,
     ) -> None:
         self.host = host
         self.port = port
@@ -40,6 +41,7 @@ class SmtpEmailSender(EmailSender):
         self.password = password
         self.use_tls = use_tls
         self.from_addr = from_addr or username or "noreply@example.com"
+        self.timeout = timeout
 
     def send(self, to: str, subject: str, body: str) -> None:
         if not self.host:
@@ -51,7 +53,7 @@ class SmtpEmailSender(EmailSender):
         message["Subject"] = subject
         message.set_content(body)
 
-        with smtplib.SMTP(self.host, self.port) as server:
+        with smtplib.SMTP(self.host, self.port, timeout=self.timeout) as server:
             if self.use_tls:
                 server.starttls()
             if self.username and self.password:

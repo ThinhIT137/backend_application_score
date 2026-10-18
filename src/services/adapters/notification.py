@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Callable
 from typing import Any
 
 from src.core.config import Settings, get_settings
@@ -30,8 +31,12 @@ class NoOpNotificationPublisher(NotificationPublisher):
 
 
 class EmailNotificationPublisher(NotificationPublisher):
-    def __init__(self, sender: EmailSender | None = None) -> None:
-        self.service = NotificationService(sender or MockEmailSender())
+    def __init__(
+        self,
+        sender: EmailSender | None = None,
+        get_email_thi_sinh: Callable[[str], str | None] | None = None,
+    ) -> None:
+        self.service = NotificationService(sender or MockEmailSender(), get_email_thi_sinh)
 
     def trigger_cong_bo_ket_qua(
         self,
@@ -44,9 +49,12 @@ class EmailNotificationPublisher(NotificationPublisher):
         return self.service.send_for_records(records)
 
 
-def build_notification_publisher(settings: Settings | None = None) -> NotificationPublisher:
+def build_notification_publisher(
+    settings: Settings | None = None,
+    get_email_thi_sinh: Callable[[str], str | None] | None = None,
+) -> NotificationPublisher:
     settings = settings or get_settings()
-    if settings.email_provider == "smtp" and settings.smtp_host:
+    if settings.email_provider == "smtp":
         sender = SmtpEmailSender(
             host=settings.smtp_host,
             port=settings.smtp_port,
@@ -55,5 +63,5 @@ def build_notification_publisher(settings: Settings | None = None) -> Notificati
             use_tls=settings.smtp_use_tls,
             from_addr=settings.smtp_from,
         )
-        return EmailNotificationPublisher(sender)
-    return EmailNotificationPublisher(MockEmailSender())
+        return EmailNotificationPublisher(sender, get_email_thi_sinh)
+    return EmailNotificationPublisher(MockEmailSender(), get_email_thi_sinh)

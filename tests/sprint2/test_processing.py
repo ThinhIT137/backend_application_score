@@ -39,10 +39,10 @@ def publication(profile,record):
 
 def test_publish(profile,record):
     service,_,_,notify=publication(profile,record)
-    result=service.cong_bo_ket_qua(CongBoKetQuaRequest(nam_tuyen_sinh=2026))
-    assert result.so_ho_so==1
-    assert record.ket_qua
-    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+    with pytest.raises(KhongDuDieuKienCongBo, match="nguồn kết quả"):
+        service.cong_bo_ket_qua(CongBoKetQuaRequest(nam_tuyen_sinh=2026))
+    assert record.ket_qua is None
+    notify.trigger_cong_bo_ket_qua.assert_not_called()
 
 def test_publish_blocks_pending(profile,record):
     service,repo,_,notify=publication(profile,record)
@@ -68,12 +68,11 @@ def test_role_guards():
 def test_repeat_publication_does_not_renotify(profile, record):
     service, _, _, notify = publication(profile, record)
     request = CongBoKetQuaRequest(nam_tuyen_sinh=2026)
-    service.cong_bo_ket_qua(request)
-    original = record.ket_qua
-    result = service.cong_bo_ket_qua(request)
-    assert record.ket_qua == original
-    assert not result.notification_triggered
-    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+    for _ in range(2):
+        with pytest.raises(KhongDuDieuKienCongBo, match="nguồn kết quả"):
+            service.cong_bo_ket_qua(request)
+    assert record.ket_qua is None
+    notify.trigger_cong_bo_ket_qua.assert_not_called()
 
 @pytest.mark.parametrize("offset,expected", [(-1, False), (0, True), (1, False)])
 def test_publication_exact_time_boundary(profile, offset, expected):
