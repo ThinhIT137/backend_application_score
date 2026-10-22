@@ -53,5 +53,4 @@ class GiaiThuong(Base):
     mon_hoc: Mapped[MonHoc] = mapped_column(
         pg_enum(MonHoc, "mon_hoc_enum"), nullable=False
     )
-    # Ghi chu: KHONG co cot file_dinh_kem o Sprint 1.
-    # Bo sung sau neu nhom xac nhan can minh chung giai thuong.
+    file_dinh_kem: Mapped[str | None] = mapped_column(String, nullable=True)

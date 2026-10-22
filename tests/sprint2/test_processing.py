@@ -3,7 +3,7 @@ from types import SimpleNamespace
 import pytest
 from src.core.security import CurrentUser, require_admin, require_thi_sinh
 from src.core.exceptions import DuLieuKhongHopLe, TrangThaiKhongHopLe, KhongDuDieuKienCongBo, ForbiddenError
-from src.models.trang_thai_ho_so import TrangThaiDuyet
+from src.models.trang_thai_ho_so import TrangThaiHoSo as TrangThaiDuyet
 from src.schemas.ho_so_schema import CongBoKetQuaRequest
 
 def test_approve(profile,record):
@@ -34,7 +34,10 @@ def publication(profile,record):
     scores.list_lo_trinh.return_value=[SimpleNamespace(loai_moc="cong_bo",ten_moc="C?ng b?",thoi_gian_bat_dau=now-timedelta(days=1),thoi_gian_ket_thuc=now+timedelta(days=1))]
     repo.count_cho.return_value=0
     repo.list_for_cong_bo.return_value=[record]
-    record.trang_thai=TrangThaiDuyet.hop_le
+    record.trang_thai=TrangThaiDuyet.do
+    record.chot_ket_qua_at=now
+    record.cong_bo_at=None
+    repo.db=None
     return service,repo,scores,notify
 
 def test_publish(profile,record):
@@ -42,7 +45,7 @@ def test_publish(profile,record):
     result=service.cong_bo_ket_qua(CongBoKetQuaRequest(nam_tuyen_sinh=2026))
     assert result.so_ho_so==1
     assert record.ket_qua
-    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+    notify.trigger_cong_bo_ket_qua.assert_not_called()
 
 def test_publish_blocks_pending(profile,record):
     service,repo,_,notify=publication(profile,record)
@@ -73,7 +76,7 @@ def test_repeat_publication_does_not_renotify(profile, record):
     result = service.cong_bo_ket_qua(request)
     assert record.ket_qua == original
     assert not result.notification_triggered
-    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+    notify.trigger_cong_bo_ket_qua.assert_not_called()
 
 
 def test_publication_marks_rejected_record_with_existing_reason(profile, record):
@@ -83,9 +86,10 @@ def test_publication_marks_rejected_record_with_existing_reason(profile, record)
 
     result = service.cong_bo_ket_qua(CongBoKetQuaRequest(nam_tuyen_sinh=2026))
 
-    assert record.ket_qua == "Không đủ điều kiện (đã công bố): Thiếu minh chứng"
-    assert not result.idempotent
-    notify.trigger_cong_bo_ket_qua.assert_called_once_with(2026)
+    assert record.ket_qua == "Thiếu minh chứng"
+    assert record.cong_bo_at is None
+    assert result.idempotent
+    notify.trigger_cong_bo_ket_qua.assert_not_called()
 
 @pytest.mark.parametrize("offset,expected", [(-1, False), (0, True), (1, False)])
 def test_publication_exact_time_boundary(profile, offset, expected):

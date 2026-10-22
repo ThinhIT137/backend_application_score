@@ -51,7 +51,7 @@ class SmtpEmailSender(EmailSender):
         message["Subject"] = subject
         message.set_content(body)
 
-        with smtplib.SMTP(self.host, self.port) as server:
+        with smtplib.SMTP(self.host, self.port, timeout=15) as server:
             if self.use_tls:
                 server.starttls()
             if self.username and self.password:

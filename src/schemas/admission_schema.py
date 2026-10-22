@@ -12,6 +12,9 @@ class CutoffScore(InputModel):
     model_config = ConfigDict(from_attributes=True, extra="forbid", str_strip_whitespace=True)
     ma_phuong_thuc: str = Field(min_length=1)
     diem: float = Field(ge=0, allow_inf_nan=False)
+    nguyen_vong_toi_da: int | None = Field(default=None, ge=1)
+    diem_uu_tien_toi_thieu: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    dieu_kien_mon: dict | None = None
 
 class CutoffInput(InputModel):
     ma_chuong_trinh: str = Field(min_length=1)
@@ -27,11 +30,26 @@ class CutoffInput(InputModel):
             raise ValueError("Duplicate admission method")
         return self
 
+class ProgramBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    ten_chuong_trinh: str | None = None
+    ma_nganh: str | None = None
+
+class MethodBrief(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    ten_phuong_thuc: str | None = None
+
+class CutoffScoreOutput(CutoffScore):
+    ma_diem_tt: str
+    phuong_thuc: MethodBrief | None = None
+
 class CutoffOutput(CutoffInput):
     model_config = ConfigDict(from_attributes=True)
     ma_ls_dc: str
     ma_admin_cap_nhat: str
     create_at: datetime
+    chuong_trinh: ProgramBrief | None = None
+    diem_trung_tuyen: list[CutoffScoreOutput]
 
 class Grade(InputModel):
     ma_mon: str = Field(min_length=1)
@@ -40,6 +58,7 @@ class Grade(InputModel):
 class Transcript(InputModel):
     loai_diem: Literal[LoaiBangDiem.lop_10, LoaiBangDiem.lop_11, LoaiBangDiem.lop_12]
     nam_hoc: int = Field(ge=1900, le=2100)
+    hoc_ky: int = Field(default=0, ge=0, le=2)
     diem_mon: list[Grade] = Field(min_length=1)
 
     @model_validator(mode="after")
@@ -68,6 +87,7 @@ class Award(InputModel):
     giai_thuong: HangGiaiThuong
     loai_giai_thuong: CapGiaiThuong
     mon_hoc: MonHoc
+    file_dinh_kem: str | None = Field(default=None, min_length=1)
 
 class Submission(InputModel):
     ma_chuong_trinh: str = Field(min_length=1)
@@ -83,7 +103,12 @@ class Submission(InputModel):
     def evidence(self):
         if not (self.bang_diem or self.chung_chi or self.giai_thuong):
             raise ValueError("At least one evidence item is required")
-        keys = [(b.loai_diem, b.nam_hoc) for b in self.bang_diem]
+        keys = [(b.loai_diem, b.nam_hoc, b.hoc_ky) for b in self.bang_diem]
         if len(keys) != len(set(keys)):
             raise ValueError("Duplicate transcript")
+        periods = {}
+        for b in self.bang_diem:
+            periods.setdefault((b.loai_diem, b.nam_hoc), set()).add(b.hoc_ky)
+        if any(0 in terms and len(terms) > 1 for terms in periods.values()):
+            raise ValueError("Choose annual or semester grades for a class/year, not both")
         return self

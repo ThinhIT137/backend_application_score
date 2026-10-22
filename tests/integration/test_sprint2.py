@@ -1,5 +1,6 @@
 """Sprint 2 runs real repositories and the bundled synthetic examination source."""
 from datetime import datetime, timedelta
+from tests.integration.test_profile_lifecycle import decide
 import pytest
 from sqlalchemy import select, func
 from src.models.ho_so import NguyenVongSinhVien
@@ -22,6 +23,7 @@ def test_submit_lookup_approve_publish(api, submission):
     assert api.client.post("/ho-so/cong-bo-ket-qua", json=payload, headers=api.admin).status_code == 400
     assert api.client.patch(f"/ho-so/{key}/duyet", headers=api.admin).json()["trang_thai"] == "hop_le"
     assert api.client.patch(f"/ho-so/{key}/duyet", headers=api.admin).status_code == 409
+    decide(api, key, year)
     first = api.client.post("/ho-so/cong-bo-ket-qua", json=payload, headers=api.admin)
     assert first.status_code == 200, first.text
     assert first.json()["notification_triggered"] is False  # No-op publisher is reported honestly.

@@ -92,7 +92,7 @@ class HoSoRepository(HoSoRepositoryInterface):
             ma_chuong_trinh=ma_chuong_trinh,
             ma_phuong_thuc=ma_phuong_thuc,
         )
-        return list(self.db.scalars(stmt).all())
+        return list(self.db.scalars(stmt.with_for_update()).all())
 
     # --- Sprint 1 methods ---
 

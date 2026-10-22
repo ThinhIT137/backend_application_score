@@ -4,7 +4,7 @@ from math import ceil
 
 from src.core.exceptions import DuLieuKhongHopLe
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.trang_thai_ho_so import TrangThaiDuyet
+from src.models.trang_thai_ho_so import TrangThaiHoSo as TrangThaiDuyet
 from src.repositories.thong_ke_repository import ThongKeRepository
 from src.schemas.thong_ke_schema import (
     BaoCaoTongHop,
@@ -24,20 +24,10 @@ def _percent(numerator: int, denominator: int) -> float:
     return round(numerator * 100 / denominator, 2) if denominator else 0.0
 
 
-def _is_published(record: NguyenVongSinhVien) -> bool:
-    return "đã công bố" in (record.ket_qua or "").lower()
+from src.services.result_state import published as _is_published, result_label as _result_label
 
-
-def _is_admitted(record: NguyenVongSinhVien) -> bool:
-    return record.trang_thai == TrangThaiDuyet.hop_le and _is_published(record)
-
-
-def _result_label(record: NguyenVongSinhVien) -> str:
-    if not _is_published(record):
-        return "chua_cong_bo"
-    if record.trang_thai == TrangThaiDuyet.hop_le:
-        return "trung_tuyen"
-    return "khong_trung_tuyen"
+def _is_admitted(record):
+    return _result_label(record) == "trung_tuyen"
 
 
 class ThongKeService:
@@ -66,15 +56,15 @@ class ThongKeService:
         trend = Counter(record.create_at.date() for record in records)
         admitted = sum(_is_admitted(record) for record in records)
         published = sum(_is_published(record) for record in records)
-        completed = status[TrangThaiDuyet.hop_le] + status[TrangThaiDuyet.tu_choi]
+        completed = len(records) - status[TrangThaiDuyet.cho]
         industries = {
             program.ma_nganh or program.ma_chuong_trinh for program, _ in programs
         }
         return ThongKeTongQuanResponse(
             nam_tuyen_sinh=nam_tuyen_sinh,
             tong_ho_so=len(records),
-            cho_xu_ly=status[TrangThaiDuyet.cho],
-            hop_le=status[TrangThaiDuyet.hop_le],
+            cho_xu_ly=status[TrangThaiDuyet.cho] + status[TrangThaiDuyet.dang_xu_ly],
+            hop_le=sum(status[state] for state in (TrangThaiDuyet.hop_le, TrangThaiDuyet.dang_xu_ly, TrangThaiDuyet.do, TrangThaiDuyet.truot)),
             tu_choi=status[TrangThaiDuyet.tu_choi],
             da_cong_bo=published,
             trung_tuyen=admitted,
@@ -150,7 +140,7 @@ class ThongKeService:
                     chi_tieu=quota,
                     tong_ho_so=len(items),
                     hop_le=sum(
-                        item.trang_thai == TrangThaiDuyet.hop_le for item in items
+                        item.trang_thai in {TrangThaiDuyet.hop_le, TrangThaiDuyet.dang_xu_ly, TrangThaiDuyet.do, TrangThaiDuyet.truot} for item in items
                     ),
                     tu_choi=sum(
                         item.trang_thai == TrangThaiDuyet.tu_choi for item in items
@@ -197,7 +187,7 @@ class ThongKeService:
                     ten_phuong_thuc=name,
                     tong_ho_so=len(items),
                     hop_le=sum(
-                        item.trang_thai == TrangThaiDuyet.hop_le for item in items
+                        item.trang_thai in {TrangThaiDuyet.hop_le, TrangThaiDuyet.dang_xu_ly, TrangThaiDuyet.do, TrangThaiDuyet.truot} for item in items
                     ),
                     trung_tuyen=admitted,
                     ty_trong=_percent(len(items), len(records)),
@@ -214,7 +204,7 @@ class ThongKeService:
                     ma_to_hop=code,
                     tong_ho_so=len(items),
                     hop_le=sum(
-                        item.trang_thai == TrangThaiDuyet.hop_le for item in items
+                        item.trang_thai in {TrangThaiDuyet.hop_le, TrangThaiDuyet.dang_xu_ly, TrangThaiDuyet.do, TrangThaiDuyet.truot} for item in items
                     ),
                     trung_tuyen=admitted,
                     ty_trong=_percent(len(items), len(records)),

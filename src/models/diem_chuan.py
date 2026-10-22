@@ -34,6 +34,7 @@ class LichSuDiemChuan(Base):
     diem_trung_tuyen: Mapped[list["DiemTrungTuyen"]] = relationship(
         back_populates="lich_su", cascade="all, delete-orphan"
     )
+    chuong_trinh = relationship("ChuongTrinhDaoTao")
 
 
 class DiemTrungTuyen(Base):
@@ -59,3 +60,4 @@ class DiemTrungTuyen(Base):
     diem_uu_tien_toi_thieu: Mapped[float | None] = mapped_column(Float, nullable=True)
 
     lich_su: Mapped[LichSuDiemChuan] = relationship(back_populates="diem_trung_tuyen")
+    phuong_thuc = relationship("PhuongThucXetTuyen")

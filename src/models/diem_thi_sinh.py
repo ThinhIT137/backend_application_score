@@ -17,6 +17,7 @@ class BangDiem(Base):
         nullable=False,
     )
     nam_hoc: Mapped[int] = mapped_column(Integer, nullable=False)
+    hoc_ky: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
 
     chi_tiet: Mapped[list["DiemChiTiet"]] = relationship(back_populates="bang_diem")
 

@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, String, ForeignKey
+from sqlalchemy import DateTime, String, ForeignKey, Integer
 from sqlalchemy.orm import synonym
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -14,6 +14,12 @@ class ThiSinh(Base):
 
     cccd: Mapped[str] = mapped_column(String(12), primary_key=True)
     ho_ten: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    password: Mapped[str | None] = mapped_column(String, nullable=True)
+    activation_otp_hash: Mapped[str | None] = mapped_column(String, nullable=True)
+    activation_otp_expires: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    activation_otp_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    activation_otp_attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     so_dien_thoai: Mapped[str | None] = mapped_column(String, nullable=True)
     khu_vuc: Mapped[str | None] = mapped_column(String, nullable=True)
     doi_tuong_uu_tien: Mapped[str | None] = mapped_column(String, nullable=True)

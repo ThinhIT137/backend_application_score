@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from src.models.diem_chuan import DiemTrungTuyen, LichSuDiemChuan
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiDuyet
+from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiHoSo as TrangThaiDuyet
 
 
 def _seed_report_data(api):
@@ -34,7 +34,7 @@ def _seed_report_data(api):
                     ma_chuong_trinh="P1",
                     ma_phuong_thuc="HB",
                     ma_to_hop="A00",
-                    trang_thai=TrangThaiDuyet.hop_le,
+                    trang_thai=TrangThaiDuyet.do, cong_bo_at=now, chot_ket_qua_at=now,
                     ket_qua="Đủ điều kiện xét tuyển (đã công bố)",
                     tong_diem_xet_tuyen=27.5,
                     nguon_du_lieu=NguonDuLieu.tu_nop,
@@ -48,7 +48,7 @@ def _seed_report_data(api):
                     ma_chuong_trinh="P1",
                     ma_phuong_thuc="HB",
                     ma_to_hop="A00",
-                    trang_thai=TrangThaiDuyet.tu_choi,
+                    trang_thai=TrangThaiDuyet.truot, cong_bo_at=now, chot_ket_qua_at=now,
                     ket_qua="Không đủ điều kiện (đã công bố)",
                     tong_diem_xet_tuyen=20.0,
                     nguon_du_lieu=NguonDuLieu.tu_nop,
@@ -87,8 +87,8 @@ def test_overview_and_industry_statistics(api):
         "nam_tuyen_sinh": 2026,
         "tong_ho_so": 3,
         "cho_xu_ly": 1,
-        "hop_le": 1,
-        "tu_choi": 1,
+        "hop_le": 2,
+        "tu_choi": 0,
         "da_cong_bo": 2,
         "trung_tuyen": 1,
         "tong_chi_tieu": 2,
@@ -110,8 +110,8 @@ def test_overview_and_industry_statistics(api):
         "ten_nganh": "Cong nghe thong tin",
         "chi_tieu": 2,
         "tong_ho_so": 3,
-        "hop_le": 1,
-        "tu_choi": 1,
+        "hop_le": 2,
+        "tu_choi": 0,
         "trung_tuyen": 1,
         "ty_le_canh_tranh": 1.5,
         "ty_le_lap_day": 50.0,
@@ -171,6 +171,9 @@ def test_rejection_reason_is_not_counted_as_published_result(api):
     with api.db.begin() as db:
         rejected = db.get(NguyenVongSinhVien, "HS2")
         rejected.ket_qua = "Thiếu minh chứng"
+        rejected.trang_thai = TrangThaiDuyet.tu_choi
+        rejected.cong_bo_at = None
+        rejected.chot_ket_qua_at = None
 
     overview = api.client.get(
         "/thong-ke/tong-quan?nam_tuyen_sinh=2026", headers=api.admin

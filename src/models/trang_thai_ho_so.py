@@ -9,6 +9,15 @@ class TrangThaiDuyet(str, enum.Enum):
     tu_choi = "tu_choi"
 
 
+class TrangThaiHoSo(str, enum.Enum):
+    cho = "cho"
+    hop_le = "hop_le"
+    tu_choi = "tu_choi"
+    dang_xu_ly = "dang_xu_ly"
+    do = "do"
+    truot = "truot"
+
+
 class NguonDuLieu(str, enum.Enum):
     tu_nop = "tu_nop"
     dong_bo_bo = "dong_bo_bo"

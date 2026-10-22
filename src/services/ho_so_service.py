@@ -1,5 +1,9 @@
-﻿import uuid
+﻿from src.services.result_state import published, result_label, public_status
+from src.models.workflow import NotificationOutbox
+from src.models.tham_chieu import ThiSinh
+import uuid
 from datetime import datetime
+from sqlalchemy import select
 
 from src.core.exceptions import (
     DuLieuKhongHopLe,
@@ -12,7 +16,7 @@ from src.models.diem_thi_sinh import ChungChi
 from src.models.giai_thuong import CapGiaiThuong, GiaiThuong, HangGiaiThuong, MonHoc
 from src.models.ho_so import NguyenVongSinhVien
 from src.models.tham_chieu import LoTrinhTuyenSinh
-from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiDuyet
+from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiHoSo as TrangThaiDuyet
 from src.repositories.diem_repository_interface import DiemRepositoryInterface
 from src.repositories.ho_so_repository_interface import HoSoRepositoryInterface
 from src.schemas.ho_so_schema import (
@@ -93,10 +97,20 @@ class HoSoService(HoSoServiceInterface):
         # Trả 404 khi không sở hữu, tránh tiết lộ hồ sơ người khác.
         if record is None or record.cccd != user.cccd:
             raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
-        return self.get_detail(ma_ho_so)
+        detail = self.get_detail(ma_ho_so)
+        if not published(record):
+            detail = detail.model_copy(update={"trang_thai": public_status(record), "ket_qua": record.ket_qua if record.trang_thai == TrangThaiDuyet.tu_choi else None, "nguon_ket_qua": None, "chot_ket_qua_at": None, "diem_trace": None})
+        return detail
 
     def _require_cho(self, ma_ho_so: str) -> NguyenVongSinhVien:
-        ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
+        db = getattr(self.ho_so_repo, "db", None)
+        if db is not None:
+            # Refresh after waiting on candidate/Storage mutations; retain lock until commit.
+            ho_so = db.scalar(select(NguyenVongSinhVien)
+                .where(NguyenVongSinhVien.ma_ho_so == ma_ho_so).with_for_update()
+                .execution_options(populate_existing=True))
+        else:
+            ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
         if ho_so is None:
             raise HoSoNotFound(f"Không tìm thấy hồ sơ {ma_ho_so}")
         if ho_so.trang_thai != TrangThaiDuyet.cho:
@@ -154,54 +168,21 @@ class HoSoService(HoSoServiceInterface):
             ma_chuong_trinh=payload.ma_chuong_trinh,
             ma_phuong_thuc=payload.ma_phuong_thuc,
         )
-        changed_records: list[NguyenVongSinhVien] = []
-        for ho_so in records:
-            if _is_published_result(ho_so.ket_qua):
-                continue
-            changed_records.append(ho_so)
-            if ho_so.trang_thai == TrangThaiDuyet.hop_le:
-                ho_so.ket_qua = "Đủ điều kiện xét tuyển (đã công bố)"
-            elif ho_so.trang_thai == TrangThaiDuyet.tu_choi:
-                reason = (ho_so.ket_qua or "").strip()
-                ho_so.ket_qua = "Không đủ điều kiện (đã công bố)"
-                if reason:
-                    ho_so.ket_qua = f"{ho_so.ket_qua}: {reason}"
-
-        notification_report: dict[str, object] = {
-            "tong": 0,
-            "da_gui": 0,
-            "thieu_email": 0,
-            "loi": 0,
-            "ma_ho_so_loi": [],
-        }
-        if changed_records:
-            if isinstance(self.notifier, NoOpNotificationPublisher):
-                raw_report = self.notifier.trigger_cong_bo_ket_qua(payload.nam_tuyen_sinh)
-            elif isinstance(self.notifier, EmailNotificationPublisher):
-                raw_report = self.notifier.trigger_cong_bo_ket_qua(
-                    payload.nam_tuyen_sinh,
-                    changed_records,
-                )
-            else:
-                raw_report = self.notifier.trigger_cong_bo_ket_qua(payload.nam_tuyen_sinh)
-            if isinstance(raw_report, dict):
-                notification_report = raw_report
-
+        changed_records = [record for record in records if record.trang_thai != TrangThaiDuyet.tu_choi and not published(record)]
+        for record in changed_records:
+            if not getattr(record, "chot_ket_qua_at", None) or record.trang_thai not in {TrangThaiDuyet.do, TrangThaiDuyet.truot}:
+                raise KhongDuDieuKienCongBo("Còn hồ sơ chưa có kết quả chính thức được chốt; không suy ra từ trạng thái hợp lệ")
+        for record in changed_records:
+            record.cong_bo_at = now
+            record.ket_qua = ("Trúng tuyển" if record.trang_thai == TrangThaiDuyet.do else "Không trúng tuyển") + " (đã công bố)"
+            db = getattr(self.ho_so_repo, "db", None)
+            if db is not None and db.get(NotificationOutbox, record.ma_ho_so) is None:
+                student = db.get(ThiSinh, record.cccd)
+                db.add(NotificationOutbox(ma_ho_so=record.ma_ho_so, email=student.email if student else None, status="pending"))
         return CongBoKetQuaResponse(
-            nam_tuyen_sinh=payload.nam_tuyen_sinh,
-            so_ho_so=len(records),
-            da_xu_ly_het=True,
-            trong_moc_cong_bo=True,
-            notification_triggered=bool(changed_records) and not isinstance(
-                self.notifier,
-                NoOpNotificationPublisher,
-            ),
-            idempotent=not bool(changed_records),
-            tong=int(notification_report.get("tong", 0) or 0),
-            da_gui=int(notification_report.get("da_gui", 0) or 0),
-            thieu_email=int(notification_report.get("thieu_email", 0) or 0),
-            loi=int(notification_report.get("loi", 0) or 0),
-            ma_ho_so_loi=list(notification_report.get("ma_ho_so_loi", []) or []),
+            nam_tuyen_sinh=payload.nam_tuyen_sinh, so_ho_so=len(records), da_xu_ly_het=True,
+            trong_moc_cong_bo=True, notification_triggered=False, idempotent=not bool(changed_records),
+            tong=len(changed_records), da_gui=0, thieu_email=0, loi=0, ma_ho_so_loi=[], queued=len(changed_records),
         )
 
     # --- Sprint 1 methods ---
@@ -276,11 +257,8 @@ class HoSoService(HoSoServiceInterface):
         return saved_ho_so
 
     def _ket_qua_label(self, record: NguyenVongSinhVien) -> str | None:
-        if record.trang_thai == TrangThaiDuyet.hop_le:
-            return "trung_tuyen"
-        if record.trang_thai == TrangThaiDuyet.tu_choi:
-            return "khong_trung_tuyen"
-        return None
+        label = result_label(record)
+        return None if label == "chua_cong_bo" else label
 
     def tra_cuu(
         self,
@@ -292,10 +270,17 @@ class HoSoService(HoSoServiceInterface):
         if not ma_ho_so and not cccd:
             raise DuLieuKhongHopLe("Vui lòng cung cấp mã hồ sơ hoặc số CCCD để tra cứu")
 
+        if user_cccd and cccd and cccd.strip() != user_cccd:
+            raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+
         if ma_ho_so:
             hs = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so.strip())
             if hs is None:
-                raise HoSoNotFound(f"Không tìm thấy hồ sơ với mã {ma_ho_so}")
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn" if user_cccd else f"Không tìm thấy hồ sơ với mã {ma_ho_so}")
+            if user_cccd and hs.cccd != user_cccd:
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+            if nam_tuyen_sinh is not None and hs.nam_tuyen_sinh != nam_tuyen_sinh:
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
             return [hs]
 
         cccd_clean = (cccd or user_cccd or "").strip()
@@ -321,8 +306,6 @@ class HoSoService(HoSoServiceInterface):
             return []
         page = max(1, page)
         page_size = max(1, min(page_size, 100))
-        if not self._trong_moc_cong_bo(nam_tuyen_sinh, datetime.now()):
-            return []
         records = self.ho_so_repo.list_ho_so(
             trang_thai=None,
             nam_tuyen_sinh=nam_tuyen_sinh,
@@ -349,24 +332,25 @@ class HoSoService(HoSoServiceInterface):
         nam_tuyen_sinh: int | None = None,
         nguyen_vong: int | None = None,
         ket_qua: str | None = None,
+        user_cccd: str | None = None,
     ) -> list[NguyenVongSinhVien]:
         if nam_tuyen_sinh is None:
-            records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh)
+            records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh, user_cccd=user_cccd)
             if not records:
                 return []
             target_nam = records[0].nam_tuyen_sinh
         else:
             target_nam = nam_tuyen_sinh
 
-        if not self._trong_moc_cong_bo(target_nam, datetime.now()):
-            return []
 
-        records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh)
+        records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh, user_cccd=user_cccd)
         filtered: list[NguyenVongSinhVien] = []
         for record in records:
             if nguyen_vong is not None and record.nguyen_vong != nguyen_vong:
                 continue
             label = self._ket_qua_label(record)
+            if label is None:
+                continue
             if ket_qua and label != ket_qua:
                 continue
             filtered.append(record)

@@ -1,10 +1,10 @@
 from datetime import datetime
 
-from sqlalchemy import DateTime, Float, ForeignKey, Integer, String
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, String, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.core.database import Base
-from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiDuyet, pg_enum
+from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiHoSo as TrangThaiDuyet, pg_enum
 
 
 class NguyenVongSinhVien(Base):
@@ -14,11 +14,15 @@ class NguyenVongSinhVien(Base):
     cccd: Mapped[str] = mapped_column(String(12), ForeignKey("thi_sinh.cccd"), nullable=False)
     ma_chuong_trinh: Mapped[str] = mapped_column(String, nullable=False)
     trang_thai: Mapped[TrangThaiDuyet] = mapped_column(
-        pg_enum(TrangThaiDuyet, "trang_thai_duyet"),
+        pg_enum(TrangThaiDuyet, "trang_thai_ho_so"),
         nullable=False,
         default=TrangThaiDuyet.cho,
     )
     ket_qua: Mapped[str | None] = mapped_column(String, nullable=True)
+    nguon_ket_qua: Mapped[str | None] = mapped_column(String, nullable=True)
+    chot_ket_qua_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    cong_bo_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    diem_trace: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     diem_uu_tien_ap_dung: Mapped[float | None] = mapped_column(Float, nullable=True)
     tong_diem_xet_tuyen: Mapped[float | None] = mapped_column(Float, nullable=True)
     ma_to_hop: Mapped[str | None] = mapped_column(String, nullable=True)

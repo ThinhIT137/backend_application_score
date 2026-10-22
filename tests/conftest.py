@@ -21,6 +21,7 @@ def record():
 @pytest.fixture
 def profile(record):
     repo, scores, notify = Mock(), Mock(), Mock()
+    repo.db = None  # Unit fixture has no SQLAlchemy session; integration fixtures exercise locks.
     repo.get_by_ma_ho_so.return_value = record
     for name in ("list_chung_chi_by_cccd", "list_giai_thuong_by_cccd", "list_bang_diem_by_cccd"):
         getattr(repo,name).return_value = []

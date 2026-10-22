@@ -17,6 +17,7 @@ from src.schemas.diem_schema import (
 )
 from src.schemas.quy_doi_schema import QuyDoiRequest, QuyDoiResponse
 from src.services.adapters.mock_providers import MockBoGddtProvider, MockDhqgDgnlProvider
+from src.services.adapters.http_providers import HttpThptProvider, HttpDgnlProvider, DisabledProvider
 from src.services.diem_chuan_service import DiemChuanService
 from src.services.diem_service import DiemService
 from src.services.conversion_service import convert_to_thpt
@@ -25,9 +26,9 @@ router = APIRouter(prefix="/diem", tags=["diem"])
 
 
 def get_diem_service(db: Session = Depends(get_db)) -> DiemService:
-    get_settings()  # Validate that only supported mock providers are configured.
-    thpt = MockBoGddtProvider()
-    dgnl = MockDhqgDgnlProvider()
+    settings = get_settings()
+    thpt = HttpThptProvider(settings.thpt_api_url, settings.thpt_api_token) if settings.thpt_provider == "http" else MockBoGddtProvider() if settings.thpt_provider == "mock" else DisabledProvider()
+    dgnl = HttpDgnlProvider(settings.dgnl_api_url, settings.dgnl_api_token) if settings.dgnl_provider == "http" else MockDhqgDgnlProvider() if settings.dgnl_provider == "mock" else DisabledProvider()
     return DiemService(DiemRepository(db), thpt, dgnl)
 
 
@@ -41,7 +42,9 @@ def dong_bo_thpt(
     _admin: CurrentUser = Depends(require_admin),
     service: DiemService = Depends(get_diem_service),
 ) -> DongBoThptResponse:
-    return service.dong_bo_thpt(payload)
+    result = service.dong_bo_thpt(payload)
+    result.nguon = get_settings().thpt_provider
+    return result
 
 
 @router.post("/dgnl", response_model=ChungChiDgnlItem)

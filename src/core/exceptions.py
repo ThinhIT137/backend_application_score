@@ -1,5 +1,6 @@
 ﻿from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
+from fastapi.exceptions import RequestValidationError
 
 
 class AppError(Exception):
@@ -52,6 +53,17 @@ class NguonDuLieuLoi(AppError):
 
 
 def register_exception_handlers(app: FastAPI) -> None:
+    @app.exception_handler(RequestValidationError)
+    async def handle_validation(_request: Request, _exc: RequestValidationError) -> JSONResponse:
+        # Pydantic errors contain input/context; never reflect passwords, OTPs or tokens.
+        return JSONResponse(status_code=422, content={"code": "INVALID_INPUT", "message": "Dữ liệu không hợp lệ"},
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
+    @app.exception_handler(Exception)
+    async def handle_unexpected(_request: Request, _exc: Exception) -> JSONResponse:
+        return JSONResponse(status_code=500, content={"code": "INTERNAL_ERROR", "message": "Không thể xử lý yêu cầu"},
+            headers={"Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"})
+
     @app.exception_handler(AppError)
     async def handle_app_error(_request: Request, exc: AppError) -> JSONResponse:
         return JSONResponse(

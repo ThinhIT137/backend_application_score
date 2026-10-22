@@ -30,4 +30,7 @@ class ToHopXetTuyen(Base):
     __tablename__ = "to_hop_xet_tuyen"
 
     ma_to_hop: Mapped[str] = mapped_column(String, primary_key=True)
+    ma_mon_1: Mapped[str | None] = mapped_column(String, nullable=True)
+    ma_mon_2: Mapped[str | None] = mapped_column(String, nullable=True)
+    ma_mon_3: Mapped[str | None] = mapped_column(String, nullable=True)
 

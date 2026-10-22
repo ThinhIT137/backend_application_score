@@ -177,25 +177,20 @@ def test_service_crud_diem_chuan():
 # ---------------------------------------------------------------------------
 
 
-def test_api_tra_cuu_public_lookup_by_cccd_or_ma_ho_so():
-    """GET /ho-so/tra-cuu cho phep tra cuu cong khai theo CCCD hoac ma ho so, khong can dang nhap."""
+def test_api_tra_cuu_anonymous_requires_candidate_session():
     service = MagicMock()
-    service.tra_cuu.side_effect = HoSoNotFound("not found")
     app.dependency_overrides[get_ho_so_service] = lambda: service
     try:
-        resp = client.get("/ho-so/tra-cuu?cccd=999999999999")
-        assert resp.status_code == 404
-
-        resp = client.get("/ho-so/tra-cuu?ma_ho_so=HS-TEST-001")
-        assert resp.status_code == 404
+        for query in ["cccd=999999999999", "ma_ho_so=HS-TEST-001"]:
+            assert client.get("/ho-so/tra-cuu?"+query).status_code == 401
+        service.tra_cuu.assert_not_called()
     finally:
         app.dependency_overrides.pop(get_ho_so_service, None)
 
 
 def test_api_tra_cuu_validation():
-    """GET /ho-so/tra-cuu: thieu ca ma_ho_so va cccd phai bao 400."""
-    resp = client.get("/ho-so/tra-cuu")
-    assert resp.status_code == 400
+    # Authentication precedes identifier validation for personal information.
+    assert client.get("/ho-so/tra-cuu").status_code == 401
 
 
 def test_service_nop_ho_so_and_tra_cuu():
