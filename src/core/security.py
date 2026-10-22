@@ -8,6 +8,7 @@ from pydantic import BaseModel
 from src.core.config import get_settings
 from src.core.exceptions import ForbiddenError, UnauthorizedError
 
+# Lớp xác thực dùng chung của backend điểm: đọc Bearer JWT và chuẩn hóa danh tính cho router.
 bearer_scheme = HTTPBearer(auto_error=False)
 
 Role = Literal["admin", "thi_sinh"]
@@ -15,6 +16,7 @@ Role = Literal["admin", "thi_sinh"]
 
 class CurrentUser(BaseModel):
     role: Role
+    admin_role: Literal["super_admin", "chuyen_vien"] | None = None
     ma_admin: str | None = None
     cccd: str | None = None
 
@@ -23,13 +25,14 @@ def _normalize_role(raw: str | None) -> Role | None:
     if not raw:
         return None
     value = raw.strip().lower()
-    if value in {"admin", "quan_ly", "quanly", "administrator"}:
+    if value in {"super_admin", "chuyen_vien", "admin", "quan_ly", "quanly", "administrator"}:
         return "admin"
     if value in {"thi_sinh", "thisinh", "student", "candidate"}:
         return "thi_sinh"
     return None
 
 
+# Xác minh chữ ký, hạn dùng và audience theo cấu hình trước khi đọc quyền từ payload.
 def decode_token(credentials: HTTPAuthorizationCredentials | None) -> CurrentUser:
     if credentials is None or not credentials.credentials:
         raise UnauthorizedError("Thiếu token xác thực")
@@ -46,13 +49,32 @@ def decode_token(credentials: HTTPAuthorizationCredentials | None) -> CurrentUse
     except JWTError as exc:
         raise UnauthorizedError("Token không hợp lệ") from exc
 
-    role = _normalize_role(payload.get("role") or payload.get("vai_tro"))
+# Refresh token chỉ dùng đổi phiên, không được dùng trực tiếp để gọi API nghiệp vụ.
+    if payload.get("token_type") not in (None, "access"):
+        raise UnauthorizedError("Chỉ access token được phép gọi API")
+    raw_role = payload.get("role") or payload.get("vai_tro")
+    role = _normalize_role(raw_role)
+    admin_role: Literal["super_admin", "chuyen_vien"] | None = (
+        raw_role.strip().lower()
+        if raw_role and raw_role.strip().lower() in {"super_admin", "chuyen_vien"}
+        else None
+    )
+
+    # FE thật dùng SignJWT({ userId }) -> payload có userId, sub
+    # Nếu token không có claim role nhưng có userId/ma_admin thì suy luận là admin
+    ma_admin = payload.get("ma_admin") or payload.get("userId") or (payload.get("sub") if role == "admin" else None)
+    if role is None and (payload.get("ma_admin") or payload.get("userId")):
+        role = "admin"
+        admin_role = admin_role or "chuyen_vien"
+
     if role is None:
         raise UnauthorizedError("Token thiếu vai trò")
 
-    ma_admin = payload.get("ma_admin") or (payload.get("sub") if role == "admin" else None)
+    if role == "admin" and not ma_admin and payload.get("sub"):
+        ma_admin = payload.get("sub")
+
     cccd = payload.get("cccd") or (payload.get("sub") if role == "thi_sinh" else None)
-    return CurrentUser(role=role, ma_admin=ma_admin, cccd=cccd)
+    return CurrentUser(role=role, admin_role=admin_role, ma_admin=ma_admin, cccd=cccd)
 
 
 def get_current_user(
@@ -61,12 +83,14 @@ def get_current_user(
     return decode_token(credentials)
 
 
+# Dependency cho API cán bộ: ngoài vai trò admin phải có mã admin nhận diện người thao tác.
 def require_admin(user: Annotated[CurrentUser, Depends(get_current_user)]) -> CurrentUser:
     if user.role != "admin" or not user.ma_admin:
         raise ForbiddenError("Chỉ quản lý mới được gọi API này")
     return user
 
 
+# Dependency cho API thí sinh: CCCD từ token là căn cứ giới hạn dữ liệu thuộc chính người đó.
 def require_thi_sinh(user: Annotated[CurrentUser, Depends(get_current_user)]) -> CurrentUser:
     if user.role != "thi_sinh" or not user.cccd:
         raise ForbiddenError("Chỉ thí sinh mới được gọi API này")

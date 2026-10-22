@@ -1,9 +1,14 @@
-from abc import ABC, abstractmethod
+﻿from abc import ABC, abstractmethod
 
 from src.core.security import CurrentUser
 from src.models.ho_so import NguyenVongSinhVien
 from src.models.trang_thai_ho_so import TrangThaiDuyet
-from src.schemas.ho_so_schema import CongBoKetQuaRequest, CongBoKetQuaResponse, HoSoDetail
+from src.schemas.ho_so_schema import (
+    CongBoKetQuaRequest,
+    CongBoKetQuaResponse,
+    HoSoDetail,
+    NopHoSoRequest,
+)
 
 
 class HoSoServiceInterface(ABC):
@@ -35,4 +40,44 @@ class HoSoServiceInterface(ABC):
 
     @abstractmethod
     def cong_bo_ket_qua(self, payload: CongBoKetQuaRequest) -> CongBoKetQuaResponse:
+        raise NotImplementedError
+
+    # --- Sprint 1 methods ---
+
+    @abstractmethod
+    def nop_ho_so(self, payload: NopHoSoRequest) -> NguyenVongSinhVien:
+        raise NotImplementedError
+
+    @abstractmethod
+    def tra_cuu(
+        self,
+        ma_ho_so: str | None = None,
+        cccd: str | None = None,
+        nam_tuyen_sinh: int | None = None,
+    ) -> list[NguyenVongSinhVien]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_ket_qua(
+        self,
+        *,
+        nam_tuyen_sinh: int | None = None,
+        ma_chuong_trinh: str | None = None,
+        ma_phuong_thuc: str | None = None,
+        ket_qua: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[NguyenVongSinhVien]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def tra_cuu_ket_qua(
+        self,
+        *,
+        ma_ho_so: str | None = None,
+        cccd: str | None = None,
+        nam_tuyen_sinh: int | None = None,
+        nguyen_vong: int | None = None,
+        ket_qua: str | None = None,
+    ) -> list[NguyenVongSinhVien]:
         raise NotImplementedError

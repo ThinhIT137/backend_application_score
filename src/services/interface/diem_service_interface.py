@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 from src.core.security import CurrentUser
-from src.models.diem_chuan import ChungChi
+from src.models.diem_thi_sinh import ChungChi
 from src.schemas.diem_schema import (
     ChungChiDgnlItem,
     DongBoThptRequest,
@@ -16,7 +16,7 @@ class DiemServiceInterface(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def nop_dgnl(self, payload: NopDgnlRequest, user: CurrentUser) -> ChungChiDgnlItem:
+    def nop_dgnl(self, payload: NopDgnlRequest, user: CurrentUser | None = None) -> ChungChiDgnlItem:
         raise NotImplementedError
 
     @abstractmethod

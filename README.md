@@ -10,10 +10,10 @@ Chạy các lệnh tại thư mục này:
 python -m venv .venv
 & ./.venv/Scripts/python.exe -m pip install -r requirements.txt -r requirements-test.txt
 & ./.venv/Scripts/python.exe -B -m pytest -p no:cacheprovider tests -q
-& ./.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8000 --reload
+& ./.venv/Scripts/python.exe -m uvicorn app:app --host 127.0.0.1 --port 8100 --reload
 ```
 
-Không bắt buộc activate. `.venv/` đã được gitignore. Kết quả kiểm thử: **178 pass, 0 fail** (Sprint 1: 125; Sprint 2: 53), một cảnh báo deprecation TestClient; pip check không có xung đột. Tests dùng JWT khóa công khai dành riêng cho test và SQLite in-memory; không truy cập `.env`/DB thật.
+Không bắt buộc activate. `.venv/` đã được gitignore. Kết quả kiểm thử hiện tại: **203 pass, 0 fail**, một cảnh báo deprecation TestClient. Tests dùng JWT khóa công khai dành riêng cho test và SQLite in-memory; không truy cập `.env`/DB thật.
 
 Ứng dụng cần DATABASE_URL, JWT_SECRET và tùy chọn JWT_AUDIENCE trong `.env` khi gọi các API cần xác thực/DB. JWT phải chứa role admin/thi_sinh, ma_admin/cccd hoặc sub tương ứng. Xem cấu hình tại `.env.example`. Không dùng khóa test cho triển khai. `/health` kiểm tra ứng dụng chạy, không xác nhận kết nối DB.
 
@@ -35,8 +35,12 @@ Service map các bảng Prisma đã có, không tạo migration hay bảng produ
 | POST | /diem/dgnl | thí sinh |
 | GET | /diem/dgnl/cho-xac-minh | admin |
 | PATCH | /diem/dgnl/{ma_chung_chi}/xac-nhan hoặc /yeu-cau-bo-sung | admin |
+| GET | /thong-ke/tong-quan | admin |
+| GET | /thong-ke/nganh-hoc | admin |
+| GET | /thong-ke/xet-tuyen | admin |
+| GET | /bao-cao/trung-tuyen | admin |
 
-Swagger: http://127.0.0.1:8000/docs. POST /ho-so nhận chương trình, phương thức, nguyện vọng, năm và ít nhất một trong bang_diem/chung_chi/giai_thuong. CCCD lấy từ JWT, không nhận từ body. Hồ sơ và minh chứng được lưu cùng transaction. Chứng chỉ nhận đường dẫn file; chưa triển khai upload. Giải thưởng lưu hạng/cấp/môn theo enum Prisma.
+Swagger khi chạy local: http://127.0.0.1:8100/docs. POST /ho-so nhận chương trình, phương thức, nguyện vọng, năm và ít nhất một trong bang_diem/chung_chi/giai_thuong. CCCD lấy từ JWT, không nhận từ body. Hồ sơ và minh chứng được lưu cùng transaction. Chứng chỉ nhận đường dẫn file; chưa triển khai upload. Giải thưởng lưu hạng/cấp/môn theo enum Prisma.
 
 Quy đổi nhận phuong_thuc hoc_ba/hsa/tsa, diem và nam_tuyen_sinh=2026. Bảng `src/data/conversion_scales_2026.json` là bản độc lập trong repo này. Không có quy tắc cộng điểm chứng chỉ/giải thưởng nên chưa tính các điểm cộng đó. Điểm ngoài bảng bị từ chối.
 

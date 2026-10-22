@@ -1,10 +1,22 @@
+﻿from src.services.result_state import published, result_label, public_status
+from src.models.workflow import NotificationOutbox
+from src.models.tham_chieu import ThiSinh
+import uuid
 from datetime import datetime
+from sqlalchemy import select
 
-from src.core.exceptions import DuLieuKhongHopLe, HoSoNotFound, KhongDuDieuKienCongBo, TrangThaiKhongHopLe
+from src.core.exceptions import (
+    DuLieuKhongHopLe,
+    HoSoNotFound,
+    KhongDuDieuKienCongBo,
+    TrangThaiKhongHopLe,
+)
 from src.core.security import CurrentUser
+from src.models.diem_thi_sinh import ChungChi
+from src.models.giai_thuong import CapGiaiThuong, GiaiThuong, HangGiaiThuong, MonHoc
 from src.models.ho_so import NguyenVongSinhVien
 from src.models.tham_chieu import LoTrinhTuyenSinh
-from src.models.trang_thai_ho_so import TrangThaiDuyet
+from src.models.trang_thai_ho_so import NguonDuLieu, TrangThaiHoSo as TrangThaiDuyet
 from src.repositories.diem_repository_interface import DiemRepositoryInterface
 from src.repositories.ho_so_repository_interface import HoSoRepositoryInterface
 from src.schemas.ho_so_schema import (
@@ -14,14 +26,23 @@ from src.schemas.ho_so_schema import (
     MinhChungBangDiem,
     MinhChungChungChi,
     MinhChungGiaiThuong,
+    NopHoSoRequest,
 )
-from src.services.adapters.notification import NotificationPublisher, NoOpNotificationPublisher
+from src.services.adapters.notification import (
+    EmailNotificationPublisher,
+    NotificationPublisher,
+    NoOpNotificationPublisher,
+)
 from src.services.interface.ho_so_service_interface import HoSoServiceInterface
 
 
 def _is_moc_cong_bo(moc: LoTrinhTuyenSinh) -> bool:
     haystack = f"{moc.loai_moc or ''} {moc.ten_moc or ''}".lower()
     return any(token in haystack for token in ("cong_bo", "công bố", "cong bo"))
+
+
+def _is_published_result(value: str | None) -> bool:
+    return "đã công bố" in (value or "").lower()
 
 
 class HoSoService(HoSoServiceInterface):
@@ -76,10 +97,20 @@ class HoSoService(HoSoServiceInterface):
         # Trả 404 khi không sở hữu, tránh tiết lộ hồ sơ người khác.
         if record is None or record.cccd != user.cccd:
             raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
-        return self.get_detail(ma_ho_so)
+        detail = self.get_detail(ma_ho_so)
+        if not published(record):
+            detail = detail.model_copy(update={"trang_thai": public_status(record), "ket_qua": record.ket_qua if record.trang_thai == TrangThaiDuyet.tu_choi else None, "nguon_ket_qua": None, "chot_ket_qua_at": None, "diem_trace": None})
+        return detail
 
     def _require_cho(self, ma_ho_so: str) -> NguyenVongSinhVien:
-        ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
+        db = getattr(self.ho_so_repo, "db", None)
+        if db is not None:
+            # Refresh after waiting on candidate/Storage mutations; retain lock until commit.
+            ho_so = db.scalar(select(NguyenVongSinhVien)
+                .where(NguyenVongSinhVien.ma_ho_so == ma_ho_so).with_for_update()
+                .execution_options(populate_existing=True))
+        else:
+            ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
         if ho_so is None:
             raise HoSoNotFound(f"Không tìm thấy hồ sơ {ma_ho_so}")
         if ho_so.trang_thai != TrangThaiDuyet.cho:
@@ -137,22 +168,190 @@ class HoSoService(HoSoServiceInterface):
             ma_chuong_trinh=payload.ma_chuong_trinh,
             ma_phuong_thuc=payload.ma_phuong_thuc,
         )
-        changed = False
-        for ho_so in records:
-            if not ho_so.ket_qua:
-                changed = True
-                if ho_so.trang_thai == TrangThaiDuyet.hop_le:
-                    ho_so.ket_qua = "Đủ điều kiện xét tuyển (đã công bố)"
-                elif ho_so.trang_thai == TrangThaiDuyet.tu_choi:
-                    ho_so.ket_qua = ho_so.ket_qua or "Không đủ điều kiện (đã công bố)"
-
-        if changed:
-            self.notifier.trigger_cong_bo_ket_qua(payload.nam_tuyen_sinh)
+        changed_records = [record for record in records if record.trang_thai != TrangThaiDuyet.tu_choi and not published(record)]
+        for record in changed_records:
+            if not getattr(record, "chot_ket_qua_at", None) or record.trang_thai not in {TrangThaiDuyet.do, TrangThaiDuyet.truot}:
+                raise KhongDuDieuKienCongBo("Còn hồ sơ chưa có kết quả chính thức được chốt; không suy ra từ trạng thái hợp lệ")
+        for record in changed_records:
+            record.cong_bo_at = now
+            record.ket_qua = ("Trúng tuyển" if record.trang_thai == TrangThaiDuyet.do else "Không trúng tuyển") + " (đã công bố)"
+            db = getattr(self.ho_so_repo, "db", None)
+            if db is not None and db.get(NotificationOutbox, record.ma_ho_so) is None:
+                student = db.get(ThiSinh, record.cccd)
+                db.add(NotificationOutbox(ma_ho_so=record.ma_ho_so, email=student.email if student else None, status="pending"))
         return CongBoKetQuaResponse(
-            nam_tuyen_sinh=payload.nam_tuyen_sinh,
-            so_ho_so=len(records),
-            da_xu_ly_het=True,
-            trong_moc_cong_bo=True,
-            notification_triggered=changed and not isinstance(self.notifier, NoOpNotificationPublisher),
-            idempotent=True,
+            nam_tuyen_sinh=payload.nam_tuyen_sinh, so_ho_so=len(records), da_xu_ly_het=True,
+            trong_moc_cong_bo=True, notification_triggered=False, idempotent=not bool(changed_records),
+            tong=len(changed_records), da_gui=0, thieu_email=0, loi=0, ma_ho_so_loi=[], queued=len(changed_records),
         )
+
+    # --- Sprint 1 methods ---
+
+    def nop_ho_so(self, payload: NopHoSoRequest) -> NguyenVongSinhVien:
+        # 1. Validate thi sinh ton tai
+        if not self.ho_so_repo.check_thi_sinh_exists(payload.cccd):
+            raise DuLieuKhongHopLe(f"Không tìm thấy thí sinh với CCCD {payload.cccd} trong hệ thống")
+
+        # 2. Check trung lap ho so trong cung nam va phuong thuc
+        existed = self.ho_so_repo.find_by_cccd_nam_phuong_thuc(
+            payload.cccd, payload.nam_tuyen_sinh, payload.ma_phuong_thuc
+        )
+        if existed is not None:
+            raise DuLieuKhongHopLe(
+                f"Thí sinh đã nộp hồ sơ cho phương thức {payload.ma_phuong_thuc} trong năm {payload.nam_tuyen_sinh}"
+            )
+
+        # 3. Tao ban ghi nguyen vong
+        ma_ho_so = f"HS-{uuid.uuid4().hex[:8].upper()}"
+        ho_so = NguyenVongSinhVien(
+            ma_ho_so=ma_ho_so,
+            cccd=payload.cccd,
+            ma_chuong_trinh=payload.ma_chuong_trinh,
+            trang_thai=TrangThaiDuyet.cho,
+            ket_qua=None,
+            diem_uu_tien_ap_dung=payload.diem_uu_tien_ap_dung,
+            tong_diem_xet_tuyen=payload.tong_diem_xet_tuyen,
+            ma_to_hop=payload.ma_to_hop,
+            ma_phuong_thuc=payload.ma_phuong_thuc,
+            nguon_du_lieu=NguonDuLieu.tu_nop,
+            nguyen_vong=payload.nguyen_vong,
+            nam_tuyen_sinh=payload.nam_tuyen_sinh,
+            ma_admin_xu_ly=None,
+            create_at=datetime.now(),
+        )
+        saved_ho_so = self.ho_so_repo.create_ho_so(ho_so)
+
+        # 4. Luu chung chi kem theo (neu co)
+        for cc in payload.chung_chi:
+            cc_rec = ChungChi(
+                ma_chung_chi=f"CC-{uuid.uuid4().hex[:8].upper()}",
+                cccd=payload.cccd,
+                loai_chung_chi=cc.loai_chung_chi,
+                diem_hoac_hang=cc.diem_hoac_hang,
+                ngay_cap=cc.ngay_cap,
+                ngay_het_han=cc.ngay_het_han,
+                file_dinh_kem=cc.file_dinh_kem,
+                trang_thai_duyet=TrangThaiDuyet.cho,
+                create_at=datetime.now(),
+            )
+            self.ho_so_repo.create_chung_chi(cc_rec)
+
+        # 5. Luu giai thuong kem theo (neu co)
+        for gt in payload.giai_thuong:
+            try:
+                hang = HangGiaiThuong(gt.giai_thuong)
+                cap = CapGiaiThuong(gt.loai_giai_thuong)
+                mon = MonHoc(gt.mon_hoc)
+            except ValueError as e:
+                raise DuLieuKhongHopLe(f"Giá trị giải thưởng không hợp lệ: {e}")
+
+            gt_rec = GiaiThuong(
+                ma_giai_thuong=f"GT-{uuid.uuid4().hex[:8].upper()}",
+                cccd=payload.cccd,
+                giai_thuong=hang,
+                loai_giai_thuong=cap,
+                mon_hoc=mon,
+            )
+            self.ho_so_repo.create_giai_thuong(gt_rec)
+
+        return saved_ho_so
+
+    def _ket_qua_label(self, record: NguyenVongSinhVien) -> str | None:
+        label = result_label(record)
+        return None if label == "chua_cong_bo" else label
+
+    def tra_cuu(
+        self,
+        ma_ho_so: str | None = None,
+        cccd: str | None = None,
+        nam_tuyen_sinh: int | None = None,
+        user_cccd: str | None = None,
+    ) -> list[NguyenVongSinhVien]:
+        if not ma_ho_so and not cccd:
+            raise DuLieuKhongHopLe("Vui lòng cung cấp mã hồ sơ hoặc số CCCD để tra cứu")
+
+        if user_cccd and cccd and cccd.strip() != user_cccd:
+            raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+
+        if ma_ho_so:
+            hs = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so.strip())
+            if hs is None:
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn" if user_cccd else f"Không tìm thấy hồ sơ với mã {ma_ho_so}")
+            if user_cccd and hs.cccd != user_cccd:
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+            if nam_tuyen_sinh is not None and hs.nam_tuyen_sinh != nam_tuyen_sinh:
+                raise HoSoNotFound("Không tìm thấy hồ sơ của bạn")
+            return [hs]
+
+        cccd_clean = (cccd or user_cccd or "").strip()
+        if len(cccd_clean) != 12 or not cccd_clean.isdigit():
+            raise DuLieuKhongHopLe("Số CCCD phải gồm đúng 12 chữ số")
+
+        records = self.ho_so_repo.find_by_cccd(cccd_clean, nam=nam_tuyen_sinh)
+        if not records:
+            raise HoSoNotFound(f"Không tìm thấy hồ sơ nào cho CCCD {cccd_clean}")
+        return records
+
+    def list_ket_qua(
+        self,
+        *,
+        nam_tuyen_sinh: int | None = None,
+        ma_chuong_trinh: str | None = None,
+        ma_phuong_thuc: str | None = None,
+        ket_qua: str | None = None,
+        page: int = 1,
+        page_size: int = 20,
+    ) -> list[NguyenVongSinhVien]:
+        if nam_tuyen_sinh is None:
+            return []
+        page = max(1, page)
+        page_size = max(1, min(page_size, 100))
+        records = self.ho_so_repo.list_ho_so(
+            trang_thai=None,
+            nam_tuyen_sinh=nam_tuyen_sinh,
+            ma_chuong_trinh=ma_chuong_trinh,
+        )
+        filtered: list[NguyenVongSinhVien] = []
+        for record in records:
+            if ma_phuong_thuc and record.ma_phuong_thuc != ma_phuong_thuc:
+                continue
+            label = self._ket_qua_label(record)
+            if label is None:
+                continue
+            if ket_qua and label != ket_qua:
+                continue
+            filtered.append(record)
+        start = (page - 1) * page_size
+        return filtered[start:start + page_size]
+
+    def tra_cuu_ket_qua(
+        self,
+        *,
+        ma_ho_so: str | None = None,
+        cccd: str | None = None,
+        nam_tuyen_sinh: int | None = None,
+        nguyen_vong: int | None = None,
+        ket_qua: str | None = None,
+        user_cccd: str | None = None,
+    ) -> list[NguyenVongSinhVien]:
+        if nam_tuyen_sinh is None:
+            records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh, user_cccd=user_cccd)
+            if not records:
+                return []
+            target_nam = records[0].nam_tuyen_sinh
+        else:
+            target_nam = nam_tuyen_sinh
+
+
+        records = self.tra_cuu(ma_ho_so=ma_ho_so, cccd=cccd, nam_tuyen_sinh=nam_tuyen_sinh, user_cccd=user_cccd)
+        filtered: list[NguyenVongSinhVien] = []
+        for record in records:
+            if nguyen_vong is not None and record.nguyen_vong != nguyen_vong:
+                continue
+            label = self._ket_qua_label(record)
+            if label is None:
+                continue
+            if ket_qua and label != ket_qua:
+                continue
+            filtered.append(record)
+        return filtered

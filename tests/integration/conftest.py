@@ -11,7 +11,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 from src.core import database, security
 from src.core.config import Settings
-from src.models.admission import ChuongTrinhDaoTao, PhuongThucXetTuyen, ToHopXetTuyen
+from src.models.admission import ChuongTrinhDaoTao, NganhHoc, PhuongThucXetTuyen, ToHopXetTuyen
 from src.models.tham_chieu import ThiSinh, Admin, DanhMucMonHoc, LoTrinhTuyenSinh
 from app import app
 
@@ -30,9 +30,15 @@ def api(monkeypatch):
     import src.router.diem_router as scores
     monkeypatch.setattr(scores, "get_settings", lambda: settings)
     with sessions.begin() as db:
-        db.add_all([Admin(ma_admin="A1"), ThiSinh(cccd="000000000001"), ThiSinh(cccd="000000000002"),
-            ChuongTrinhDaoTao(ma_chuong_trinh="P1"), PhuongThucXetTuyen(ma_phuong_thuc="HB"),
-            PhuongThucXetTuyen(ma_phuong_thuc="CC"), PhuongThucXetTuyen(ma_phuong_thuc="GT"),
+        db.add(NganhHoc(ma_nganh="N1", ten_nganh="Cong nghe thong tin"))
+        db.flush()
+        db.add_all([Admin(ma_admin="A1"),
+            ThiSinh(cccd="000000000001", ho_ten="Nguyen Van A", so_dien_thoai="0900000001", khu_vuc="KV1"),
+            ThiSinh(cccd="000000000002", ho_ten="Tran Thi B", so_dien_thoai="0900000002", khu_vuc="KV2"),
+            ChuongTrinhDaoTao(ma_chuong_trinh="P1", ma_nganh="N1", ten_chuong_trinh="Ky su CNTT"),
+            PhuongThucXetTuyen(ma_phuong_thuc="HB", ten_phuong_thuc="Hoc ba"),
+            PhuongThucXetTuyen(ma_phuong_thuc="CC", ten_phuong_thuc="Chung chi"),
+            PhuongThucXetTuyen(ma_phuong_thuc="GT", ten_phuong_thuc="Giai thuong"),
             ToHopXetTuyen(ma_to_hop="A00"), DanhMucMonHoc(ma_mon="TOAN"), DanhMucMonHoc(ma_mon="VAN")])
         db.flush()
         now = datetime.now()

@@ -17,7 +17,15 @@ SessionLocal = sessionmaker(autoflush=False, autocommit=False, class_=Session)
 def get_engine() -> Engine:
     global _engine
     if _engine is None:
-        _engine = create_engine(get_settings().database_url, pool_pre_ping=True)
+        url = get_settings().database_url
+        if url.startswith("postgresql://"):
+            url = url.replace("postgresql://", "postgresql+psycopg2://", 1)
+        # Loại bỏ query param ?pgbouncer=true của Prisma vì psycopg2 không nhận diện
+        if "?pgbouncer=true" in url:
+            url = url.replace("?pgbouncer=true", "")
+        elif "&pgbouncer=true" in url:
+            url = url.replace("&pgbouncer=true", "")
+        _engine = create_engine(url, pool_pre_ping=True)
         SessionLocal.configure(bind=_engine)
     return _engine
 

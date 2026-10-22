@@ -2,10 +2,10 @@
 from copy import deepcopy
 import pytest
 from sqlalchemy import select, func, event
-from src.models.admission import LichSuDiemChuan, DiemTrungTuyen
+from src.models.diem_chuan import LichSuDiemChuan, DiemTrungTuyen
 from src.models.ho_so import NguyenVongSinhVien
-from src.models.diem_chuan import BangDiem, DiemChiTiet, ChungChi
-from src.models.tham_chieu import GiaiThuong
+from src.models.diem_thi_sinh import BangDiem, DiemChiTiet, ChungChi
+from src.models.giai_thuong import GiaiThuong
 
 def cutoff():
     return {"ma_chuong_trinh": "P1", "nam": 2025, "chi_tieu": 100,
@@ -63,7 +63,7 @@ def test_submit_each_evidence_and_read_ownership(api, submission, kind):
     data.pop("bang_diem")
     data[kind] = {
         "bang_diem": submission["bang_diem"],
-        "chung_chi": [{"loai_chung_chi": "IELTS", "diem_hoac_hang": "7.0", "file_dinh_kem": "cert.pdf"}],
+        "chung_chi": [{"loai_chung_chi": "IELTS", "diem_hoac_hang": "7.0", "file_dinh_kem": "000000000001/11111111-1111-4111-8111-111111111111.pdf"}],
         "giai_thuong": [{"giai_thuong": "giai_nhi", "loai_giai_thuong": "toan_quoc", "mon_hoc": "toan"}],
     }[kind]
     response = api.client.post("/ho-so", json=data, headers=api.student)
@@ -120,7 +120,7 @@ def test_submission_rolls_back_on_mid_transaction_failure(api, submission):
 
 
 def test_combined_evidence_persists_atomically(api, submission):
-    submission["chung_chi"] = [{"loai_chung_chi": "IELTS", "diem_hoac_hang": "7", "file_dinh_kem": "e.pdf"}]
+    submission["chung_chi"] = [{"loai_chung_chi": "IELTS", "diem_hoac_hang": "7", "file_dinh_kem": "000000000001/22222222-2222-4222-8222-222222222222.pdf"}]
     submission["giai_thuong"] = [{"giai_thuong": "giai_nhat", "loai_giai_thuong": "tinh", "mon_hoc": "toan"}]
     r = api.client.post("/ho-so", json=submission, headers=api.student)
     assert r.status_code == 201, r.text
@@ -138,3 +138,7 @@ def test_cutoff_update_duplicate_and_foreign_reference_keeps_original(api):
 def test_lookup_missing_and_unauthenticated(api):
     assert api.client.get("/ho-so/cua-toi/missing", headers=api.student).status_code == 404
     assert api.client.get("/ho-so/cua-toi/missing").status_code == 401
+
+def test_public_lookup_requires_identifier(api):
+    response = api.client.get("/ho-so/tra-cuu", headers=api.student)
+    assert response.status_code == 400
