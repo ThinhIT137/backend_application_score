@@ -35,7 +35,7 @@ app.include_router(candidate_auth_router)
 app.include_router(workflow_router)
 
 
-@app.get("/health")
+@app.api_route("/health", methods=["GET", "HEAD"])
 def health() -> dict[str, str]:
     return {"status": "ok"}
 
