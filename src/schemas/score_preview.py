@@ -1,4 +1,4 @@
-"""Public calculator input. Catalogs and benchmarks are always read by the service."""
+"""Public score calculation contract; catalog comparison belongs to Next.js."""
 from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -44,11 +44,13 @@ class ComparisonRow(BaseModel):
     previousScore: float | None
     matchedMethodName: str
     chance: Literal['high', 'medium', 'low', 'unknown', 'ineligible']
+    pointBand: Literal['high', 'medium', 'low'] | None = None
     diff: float | None
     reason: str
 
 
 class ScorePreviewResponse(BaseModel):
     calculation: CalculationResult
-    programs: list[ComparisonRow]
+    # Kept for compatibility with older clients; no catalog work is performed.
+    programs: list[ComparisonRow] = Field(default_factory=list)
 
