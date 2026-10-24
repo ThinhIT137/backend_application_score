@@ -21,8 +21,15 @@ from src.services.adapters.http_providers import HttpThptProvider, HttpDgnlProvi
 from src.services.diem_chuan_service import DiemChuanService
 from src.services.diem_service import DiemService
 from src.services.conversion_service import convert_to_thpt
+from src.schemas.score_preview import ScorePreviewRequest, ScorePreviewResponse
+from src.services.score_preview import calculate_preview
 
 router = APIRouter(prefix="/diem", tags=["diem"])
+
+
+@router.post("/tinh-diem-doi-soat", response_model=ScorePreviewResponse)
+def tinh_diem_doi_soat(payload: ScorePreviewRequest, db: Session = Depends(get_db)):
+    return calculate_preview(db, payload)
 
 
 def get_diem_service(db: Session = Depends(get_db)) -> DiemService:
