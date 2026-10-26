@@ -1,5 +1,6 @@
 """UTC GHA 2026 score arithmetic only. Annual matrix: subject x grades 10/11/12."""
 import unicodedata
+from decimal import Decimal, ROUND_HALF_UP
 from sqlalchemy import text
 from src.schemas.score_preview import ScorePreviewRequest
 from src.services.conversion_service import convert_to_thpt
@@ -59,8 +60,14 @@ def calculate_preview(db, request: ScorePreviewRequest):
             except DuLieuKhongHopLe:
                 converted = None
                 notes.append('Điểm ngoài bảng quy đổi năm 2026; không nội suy ngoài khoảng đã công bố.')
-        priority_bonus = 0 if converted is None else cap if converted < 22.5 else max(0, (30 - converted) / 7.5) * cap
-        variants[kind] = dict(rawScore=round(raw, 4), convertedScore=None if converted is None else round(converted, 4), finalScore=None if converted is None else round(min(30, converted + priority_bonus + certificate_bonus), 2), priorityBonus=round(priority_bonus, 4), passPreliminary=status != 'not_met', eligibilityStatus=status, preliminaryNotes=notes)
+        # Giữ phép cộng/ưu tiên ở dạng thập phân; làm tròn 5 lên ở bước cuối,
+        # tránh round(float) làm 27.825 thành 27.82.
+        base_decimal = None if converted is None else Decimal(str(converted))
+        cap_decimal = Decimal(str(cap))
+        priority_decimal = Decimal(0) if base_decimal is None else cap_decimal if base_decimal < Decimal('22.5') else max(Decimal(0), (Decimal(30) - base_decimal) / Decimal('7.5')) * cap_decimal
+        final = None if base_decimal is None else float(min(Decimal(30), base_decimal + priority_decimal + Decimal(str(certificate_bonus))).quantize(Decimal('0.01'), rounding=ROUND_HALF_UP))
+        priority_bonus = float(priority_decimal)
+        variants[kind] = dict(rawScore=round(raw, 4), convertedScore=None if converted is None else round(converted, 4), finalScore=final, priorityBonus=round(priority_bonus, 4), passPreliminary=status != 'not_met', eligibilityStatus=status, preliminaryNotes=notes)
     standard = variants['standard']
     return dict(calculation=dict(**standard, contractVersion='utc-gha-2026-v2', variants=variants,
         method='THPT' if request.method == 'CHUNG_CHI' else request.method,
