@@ -21,16 +21,36 @@ from src.schemas.ho_so_schema import (
 )
 from src.services.adapters.notification import NoOpNotificationPublisher
 from src.services.ho_so_service import HoSoService
-from src.schemas.candidate_preferences_schema import ReorderPreferences
-from src.services.candidate_preferences_service import CandidatePreferencesService, pending_self_submission
+from src.schemas.candidate_preferences_schema import ReorderPreferences, ChangeProgram
+from src.services.candidate_preferences_service import CandidatePreferencesService, pending_self_submission, changeable_self_submission
 from src.models.workflow import NotificationOutbox
 from src.services.result_state import result_label, public_status, published
+from src.schemas.public_lookup_schema import PublicLookupRequest, PublicLookupItem
 
 router = APIRouter(prefix="/ho-so", tags=["ho-so"])
 
 
 def get_ho_so_service(db: Session = Depends(get_db)) -> HoSoService:
     return HoSoService(HoSoRepository(db), DiemRepository(db), NoOpNotificationPublisher())
+
+
+@router.post('/tra-cuu-cong-khai', response_model=list[PublicLookupItem])
+def public_dossier_lookup(payload: PublicLookupRequest, db: Session = Depends(get_db)):
+    """Only public processing status and published decisions; no private payload."""
+    results = []
+    seen = set()
+    for record, program, method in HoSoRepository(db).public_lookup(payload.cccd, payload.nam_tuyen_sinh):
+        status = public_status(record)
+        item = PublicLookupItem(ma_chuong_trinh=record.ma_chuong_trinh,
+            ten_chuong_trinh=program, ma_phuong_thuc=record.ma_phuong_thuc,
+            ten_phuong_thuc=method, nam_tuyen_sinh=record.nam_tuyen_sinh,
+            trang_thai=status.value if hasattr(status, 'value') else str(status),
+            ket_qua=result_label(record))
+        key = tuple(item.model_dump().values())
+        if key not in seen:
+            seen.add(key)
+            results.append(item)
+    return results
 
 
 # --- Sprint 1: Tra cứu trạng thái hồ sơ (Thí sinh, no auth) ---
@@ -51,12 +71,30 @@ def my_preferences(
             NguyenVongSinhVien.create_at, NguyenVongSinhVien.ma_ho_so)).all()
     notified = set(db.scalars(select(NotificationOutbox.ma_ho_so).where(
         NotificationOutbox.ma_ho_so.in_([r.ma_ho_so for r, *_ in rows]))).all()) if rows else set()
+    from src.models.submission_operation import SubmissionOperation
+    unfinished = set(db.scalars(select(SubmissionOperation.dossier_id).where(
+        SubmissionOperation.dossier_id.in_([r.ma_ho_so for r, *_ in rows]),
+        SubmissionOperation.status != "completed")).all()) if rows else set()
     return [{"ma_ho_so": r.ma_ho_so, "nguyen_vong": r.nguyen_vong, "nam_tuyen_sinh": r.nam_tuyen_sinh,
         "ma_chuong_trinh": r.ma_chuong_trinh, "ten_chuong_trinh": program, "ten_nganh": major,
         "ma_phuong_thuc": r.ma_phuong_thuc, "ten_phuong_thuc": method, "ma_to_hop": r.ma_to_hop,
         "trang_thai": public_status(r), "ket_qua": r.ket_qua if published(r) or r.trang_thai == TrangThaiDuyet.tu_choi else None,
         "create_at": r.create_at,
-        "co_the_chinh_sua": pending_self_submission(r) and r.ma_ho_so not in notified} for r, program, major, method in rows]
+        "co_the_chinh_sua": pending_self_submission(r) and r.ma_ho_so not in notified | unfinished,
+        "co_the_doi_nganh": changeable_self_submission(r) and r.ma_ho_so not in notified | unfinished} for r, program, major, method in rows]
+
+
+@router.get("/cua-toi/don-minh-chung")
+def pending_evidence_cleanup(user: CurrentUser = Depends(require_thi_sinh), db: Session = Depends(get_db)):
+    return CandidatePreferencesService(db).pending_cleanup(user)
+
+
+@router.post("/cua-toi/don-minh-chung/{operation_id}")
+def complete_evidence_cleanup(operation_id: str, payload: dict,
+        user: CurrentUser = Depends(require_thi_sinh), db: Session = Depends(get_db)):
+    result = CandidatePreferencesService(db).complete_cleanup(operation_id, payload.get("proof", ""), user)
+    db.commit()
+    return result
 
 
 @router.put("/cua-toi/thu-tu")
@@ -74,7 +112,15 @@ def withdraw_my_preference(
     user: CurrentUser = Depends(require_thi_sinh),
     db: Session = Depends(get_db),
 ):
-    return CandidatePreferencesService(db).withdraw(ma_ho_so, user)
+    result = CandidatePreferencesService(db).withdraw(ma_ho_so, user)
+    db.commit()  # Storage deletion may start only after the cleanup journal is durable.
+    return result
+
+
+@router.put("/cua-toi/{ma_ho_so}/nganh")
+def change_my_program(ma_ho_so: str, payload: ChangeProgram,
+                      user: CurrentUser = Depends(require_thi_sinh), db: Session = Depends(get_db)):
+    return CandidatePreferencesService(db).change_program(ma_ho_so, payload, user)
 
 
 # Đặt TRƯỚC /{ma_ho_so} để tránh conflict URL path

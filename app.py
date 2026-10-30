@@ -12,6 +12,7 @@ from src.router.diem_chuan_router import router as diem_chuan_router
 from src.router.thong_ke_router import router as thong_ke_router
 from src.router.candidate_auth_router import router as candidate_auth_router
 from src.router.workflow_router import router as workflow_router
+from src.router.submission_operation_router import router as submission_operation_router
 
 app = FastAPI(title="backend_application_score", version="0.1.0")
 
@@ -33,6 +34,7 @@ app.include_router(diem_chuan_router)
 app.include_router(thong_ke_router)
 app.include_router(candidate_auth_router)
 app.include_router(workflow_router)
+app.include_router(submission_operation_router)
 
 
 @app.api_route("/health", methods=["GET", "HEAD"])

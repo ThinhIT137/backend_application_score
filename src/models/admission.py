@@ -1,5 +1,5 @@
 """Mappings use existing Prisma tables; this service does not create production tables."""
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, String, Float
 from sqlalchemy.orm import Mapped, mapped_column
 from src.core.database import Base
 
@@ -25,6 +25,9 @@ class PhuongThucXetTuyen(Base):
 
     ma_phuong_thuc: Mapped[str] = mapped_column(String, primary_key=True)
     ten_phuong_thuc: Mapped[str | None] = mapped_column(String, nullable=True)
+    nhom_xet_tuyen: Mapped[str | None] = mapped_column(String, nullable=True)
+    diem_toi_thieu: Mapped[float | None] = mapped_column(Float, nullable=True)
+    diem_toi_da: Mapped[float | None] = mapped_column(Float, nullable=True)
 
 class ToHopXetTuyen(Base):
     __tablename__ = "to_hop_xet_tuyen"

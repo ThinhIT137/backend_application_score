@@ -56,19 +56,20 @@ class ApiSecurityMiddleware:
 
         path = scope.get("path", "")
         auth = path.startswith("/auth/candidate/") and scope.get("method") == "POST"
-        lookup = path in {"/ho-so/tra-cuu", "/ho-so/ket-qua/tra-cuu"}
+        public_lookup = path == "/ho-so/tra-cuu-cong-khai"
+        lookup = public_lookup or path in {"/ho-so/tra-cuu", "/ho-so/ket-qua/tra-cuu"}
         if auth or lookup:
             # ASGI peer only. Never accept X-Forwarded-For/X-Real-IP from clients.
             peer = (scope.get("client") or ("unknown",))[0]
             retry = self.limiter.check(("auth" if auth else "lookup", peer),
-                self.settings.auth_rate_limit if auth else self.settings.lookup_rate_limit,
+                self.settings.auth_rate_limit if auth else min(30, self.settings.lookup_rate_limit) if public_lookup else self.settings.lookup_rate_limit,
                 self.settings.rate_window_seconds)
             if retry:
                 return await reject(429, retry)
 
         if scope.get("method") in {"POST", "PUT", "PATCH", "DELETE"}:
             headers = dict(scope.get("headers", []))
-            maximum = self.settings.auth_max_bytes if auth else self.settings.json_max_bytes
+            maximum = 1024 if public_lookup else self.settings.auth_max_bytes if auth else self.settings.json_max_bytes
             length = headers.get(b"content-length")
             if length is not None and (not length.isdigit() or int(length) > maximum):
                 return await reject(413)

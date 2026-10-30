@@ -7,6 +7,12 @@ class ExpectedPreference(BaseModel):
     nguyen_vong_cu: int = Field(strict=True, ge=1)
 
 
+class ChangeProgram(BaseModel):
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+    ma_chuong_trinh: str = Field(min_length=1, max_length=100)
+    ma_chuong_trinh_cu: str = Field(min_length=1, max_length=100)
+
+
 class ReorderPreferences(BaseModel):
     """Array order is the requested order; each entry carries its observed rank."""
     model_config = ConfigDict(extra="forbid")

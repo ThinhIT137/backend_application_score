@@ -132,9 +132,15 @@ def me(user: CurrentUser = Depends(require_thi_sinh), db: Session = Depends(get_
 
 @router.patch("/me")
 def update_profile(payload: Profile, user: CurrentUser = Depends(require_thi_sinh), db: Session = Depends(get_db)):
-    student = db.get(ThiSinh, user.cccd)
+    from sqlalchemy import select
+    from src.models.submission_operation import SubmissionOperation
+    from src.core.exceptions import TrangThaiKhongHopLe
+    student = db.scalar(select(ThiSinh).where(ThiSinh.cccd == user.cccd).with_for_update())
     if not student:
         raise UnauthorizedError("Tài khoản không tồn tại")
+    if db.scalar(select(SubmissionOperation.operation_id).where(SubmissionOperation.cccd == user.cccd,
+            SubmissionOperation.status.in_(["pending", "aborting", "cleanup_pending"]))):
+        raise TrangThaiKhongHopLe("Cần hoàn tất lần nộp trước khi sửa thông tin")
     for key, value in payload.model_dump(exclude_unset=True).items():
         setattr(student, key, value)
     db.commit()

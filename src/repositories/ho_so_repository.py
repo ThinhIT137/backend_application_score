@@ -13,6 +13,19 @@ class HoSoRepository(HoSoRepositoryInterface):
     def __init__(self, db: Session) -> None:
         self.db = db
 
+    def public_lookup(self, cccd: str, year: int | None = None):
+        from src.models.admission import ChuongTrinhDaoTao, PhuongThucXetTuyen
+        stmt = select(NguyenVongSinhVien, ChuongTrinhDaoTao.ten_chuong_trinh,
+            PhuongThucXetTuyen.ten_phuong_thuc).outerjoin(ChuongTrinhDaoTao,
+            NguyenVongSinhVien.ma_chuong_trinh == ChuongTrinhDaoTao.ma_chuong_trinh
+            ).outerjoin(PhuongThucXetTuyen,
+            NguyenVongSinhVien.ma_phuong_thuc == PhuongThucXetTuyen.ma_phuong_thuc
+            ).where(NguyenVongSinhVien.cccd == cccd)
+        if year is not None:
+            stmt = stmt.where(NguyenVongSinhVien.nam_tuyen_sinh == year)
+        return self.db.execute(stmt.order_by(NguyenVongSinhVien.nam_tuyen_sinh.desc(),
+            NguyenVongSinhVien.ma_chuong_trinh, NguyenVongSinhVien.ma_phuong_thuc).limit(100)).all()
+
     def _filter(
         self,
         stmt: Select[tuple[NguyenVongSinhVien]],

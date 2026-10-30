@@ -9,7 +9,7 @@ from jose import jwt
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from src.core import database, security
+from src.core import database, security, config
 from src.core.config import Settings
 from src.models.admission import ChuongTrinhDaoTao, NganhHoc, PhuongThucXetTuyen, ToHopXetTuyen
 from src.models.tham_chieu import ThiSinh, Admin, DanhMucMonHoc, LoTrinhTuyenSinh
@@ -27,6 +27,7 @@ def api(monkeypatch):
     monkeypatch.setattr(database, "SessionLocal", sessions)
     settings = Settings(_env_file=None, database_url="sqlite://", jwt_secret="public-test-only-key-32-characters")
     monkeypatch.setattr(security, "get_settings", lambda: settings)
+    monkeypatch.setattr(config, "get_settings", lambda: settings)
     import src.router.diem_router as scores
     monkeypatch.setattr(scores, "get_settings", lambda: settings)
     with sessions.begin() as db:
@@ -36,9 +37,9 @@ def api(monkeypatch):
             ThiSinh(cccd="000000000001", ho_ten="Nguyen Van A", so_dien_thoai="0900000001", khu_vuc="KV1"),
             ThiSinh(cccd="000000000002", ho_ten="Tran Thi B", so_dien_thoai="0900000002", khu_vuc="KV2"),
             ChuongTrinhDaoTao(ma_chuong_trinh="P1", ma_nganh="N1", ten_chuong_trinh="Ky su CNTT"),
-            PhuongThucXetTuyen(ma_phuong_thuc="HB", ten_phuong_thuc="Hoc ba"),
-            PhuongThucXetTuyen(ma_phuong_thuc="CC", ten_phuong_thuc="Chung chi"),
-            PhuongThucXetTuyen(ma_phuong_thuc="GT", ten_phuong_thuc="Giai thuong"),
+            PhuongThucXetTuyen(ma_phuong_thuc="HB", ten_phuong_thuc="Hoc ba", nhom_xet_tuyen="HOC_BA", diem_toi_thieu=0, diem_toi_da=30),
+            PhuongThucXetTuyen(ma_phuong_thuc="CC", ten_phuong_thuc="Chung chi", nhom_xet_tuyen="KET_HOP", diem_toi_thieu=0, diem_toi_da=30),
+            PhuongThucXetTuyen(ma_phuong_thuc="GT", ten_phuong_thuc="Giai thuong", nhom_xet_tuyen="TUYEN_THANG", diem_toi_thieu=0, diem_toi_da=30),
             ToHopXetTuyen(ma_to_hop="A00"), DanhMucMonHoc(ma_mon="TOAN"), DanhMucMonHoc(ma_mon="VAN")])
         db.flush()
         now = datetime.now()

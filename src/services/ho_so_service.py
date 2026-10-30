@@ -113,6 +113,12 @@ class HoSoService(HoSoServiceInterface):
             ho_so = self.ho_so_repo.get_by_ma_ho_so(ma_ho_so)
         if ho_so is None:
             raise HoSoNotFound(f"Không tìm thấy hồ sơ {ma_ho_so}")
+        if db is not None:
+            from src.models.submission_operation import SubmissionOperation
+            if db.scalar(select(SubmissionOperation.operation_id).where(
+                    SubmissionOperation.dossier_id == ma_ho_so,
+                    SubmissionOperation.status != "completed")):
+                raise TrangThaiKhongHopLe("Hồ sơ đang lưu minh chứng, chưa thể xử lý")
         if ho_so.trang_thai != TrangThaiDuyet.cho:
             raise TrangThaiKhongHopLe(
                 f"Hồ sơ đã được xử lý (trạng thái={ho_so.trang_thai.value}), không duyệt lại"

@@ -51,6 +51,11 @@ def dossier(db, key, lock=True):
     row = db.scalar(query.with_for_update() if lock else query)
     if row is None:
         raise HoSoNotFound("Không tìm thấy hồ sơ")
+    if lock:
+        from src.models.submission_operation import SubmissionOperation
+        if db.scalar(select(SubmissionOperation.operation_id).where(
+                SubmissionOperation.dossier_id == key, SubmissionOperation.status != "completed")):
+            raise TrangThaiKhongHopLe("Hồ sơ đang lưu minh chứng")
     return row
 
 

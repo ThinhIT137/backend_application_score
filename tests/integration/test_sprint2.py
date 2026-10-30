@@ -8,6 +8,20 @@ from src.models.diem_thi_sinh import BangDiem, DiemChiTiet, ChungChi
 from src.models.tham_chieu import LoTrinhTuyenSinh
 from src.services.adapters.mock_providers import MockBoGddtProvider, MockDhqgDgnlProvider
 
+
+@pytest.fixture(autouse=True)
+def explicit_test_exam_source(api, monkeypatch):
+    """Tests opt into synthetic data; production keeps providers disabled by default."""
+    import src.router.diem_router as scores
+    import src.services.adapters.mock_providers as providers
+    settings = scores.get_settings().model_copy(update={'thpt_provider': 'mock', 'dgnl_provider': 'mock'})
+    monkeypatch.setattr(scores, 'get_settings', lambda: settings)
+    fixture = {'thpt': {'2026': [
+        {'cccd': '000000000001', 'diem_mon': [{'ma_mon': 'TOAN', 'diem_so': 8.5}, {'ma_mon': 'VAN', 'diem_so': 7.5}]},
+        {'cccd': '000000000002', 'diem_mon': [{'ma_mon': 'TOAN', 'diem_so': 8}, {'ma_mon': 'VAN', 'diem_so': 6}]},
+    ]}, 'dgnl': {'000000000001': {'2026': 100}}}
+    monkeypatch.setattr(providers, 'load_mock_scores', lambda: fixture)
+
 def submit(api, submission):
     r = api.client.post("/ho-so", json=submission, headers=api.student)
     assert r.status_code == 201, r.text

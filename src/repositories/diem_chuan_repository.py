@@ -30,6 +30,8 @@ class DiemChuanRepository(DiemChuanRepositoryInterface):
         return self.db.scalars(stmt).first()
 
     def create(self, record: LichSuDiemChuan) -> LichSuDiemChuan:
+        from src.services.year_lock_service import require_open_year
+        require_open_year(self.db, record.nam)
         self.db.add(record)
         self.db.flush()
         self.db.refresh(record)
@@ -43,10 +45,16 @@ class DiemChuanRepository(DiemChuanRepositoryInterface):
     def delete(self, ma_ls_dc: str) -> None:
         record = self.get_by_id(ma_ls_dc)
         if record:
+            from src.services.year_lock_service import require_open_year
+            require_open_year(self.db, record.nam)
             self.db.delete(record)
             self.db.flush()
 
     def add_diem_trung_tuyen(self, dtt: DiemTrungTuyen) -> DiemTrungTuyen:
+        from src.services.method_score_policy import validate_method_score
+        from src.services.year_lock_service import require_open_year
+        require_open_year(self.db, self.db.get(LichSuDiemChuan, dtt.ma_ls_dc).nam)
+        validate_method_score(self.db, dtt.ma_phuong_thuc, dtt.diem)
         self.db.add(dtt)
         self.db.flush()
         self.db.refresh(dtt)

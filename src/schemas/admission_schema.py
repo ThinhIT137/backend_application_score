@@ -38,6 +38,9 @@ class ProgramBrief(BaseModel):
 class MethodBrief(BaseModel):
     model_config = ConfigDict(from_attributes=True)
     ten_phuong_thuc: str | None = None
+    nhom_xet_tuyen: str | None = None
+    diem_toi_thieu: float | None = None
+    diem_toi_da: float | None = None
 
 class CutoffScoreOutput(CutoffScore):
     ma_diem_tt: str
@@ -45,6 +48,8 @@ class CutoffScoreOutput(CutoffScore):
 
 class CutoffOutput(CutoffInput):
     model_config = ConfigDict(from_attributes=True)
+    # A quota may exist before the council has entered any cutoff scores.
+    diem_trung_tuyen: list[CutoffScoreOutput] = Field(default_factory=list)
     ma_ls_dc: str
     ma_admin_cap_nhat: str
     create_at: datetime

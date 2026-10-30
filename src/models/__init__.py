@@ -26,3 +26,6 @@ __all__ = [
     "ThiSinh",
     "TrangThaiDuyet",
 ]
+
+from src.models.submission_operation import SubmissionOperation
+from src.models.year_lock import AdmissionYearLock

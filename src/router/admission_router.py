@@ -5,8 +5,29 @@ from src.core.security import CurrentUser, require_admin, require_thi_sinh
 from src.schemas.admission_schema import CutoffInput, CutoffOutput, Submission
 from src.schemas.ho_so_schema import HoSoListItem
 from src.services.admission_service import AdmissionService
+from src.services.year_lock_service import lock_year
+from src.models.year_lock import AdmissionYearLock
+from pydantic import BaseModel, Field
 
 router = APIRouter(tags=["admission"])
+
+
+class YearLockConfirmation(BaseModel):
+    confirmation_year: int = Field(strict=True, ge=2000, le=2100)
+
+
+@router.get('/diem-chuan/nam/{year}/khoa')
+def get_year_lock(year: int, _admin: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
+    row = db.get(AdmissionYearLock, year)
+    return {'nam': year, 'locked': row is not None, 'locked_at': row.locked_at if row else None}
+
+
+@router.post('/diem-chuan/nam/{year}/khoa')
+def lock_year_scores(year: int, payload: YearLockConfirmation,
+        admin: CurrentUser = Depends(require_admin), db: Session = Depends(get_db)):
+    result = lock_year(db, year, payload.confirmation_year, admin)
+    db.commit()
+    return result
 
 def get_admission_service(db: Session = Depends(get_db)):
     return AdmissionService(db)

@@ -20,8 +20,9 @@ class Settings(BaseSettings):
     )
     jwt_algorithm: str = "HS256"
     jwt_audience: str | None = None
-    thpt_provider: Literal["mock", "http", "disabled"] = "mock"
-    dgnl_provider: Literal["mock", "http", "disabled"] = "mock"
+    # Production must explicitly configure a real provider; do not fabricate exam scores.
+    thpt_provider: Literal["mock", "http", "disabled"] = "disabled"
+    dgnl_provider: Literal["mock", "http", "disabled"] = "disabled"
     thpt_api_url: str | None = None
     thpt_api_token: str | None = None
     dgnl_api_url: str | None = None

@@ -35,7 +35,7 @@ class DongBoLoiItem(BaseModel):
 
 
 class DongBoThptResponse(BaseModel):
-    nguon: str = "mock"
+    nguon: str = "unknown"
     nam_hoc: int
     so_thanh_cong: int
     so_loi: int
